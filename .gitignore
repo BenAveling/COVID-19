@@ -1,1 +1,4 @@
 .DS_Store
+*.dat
+*.gp
+.*.sw*
