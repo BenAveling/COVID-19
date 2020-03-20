@@ -30,6 +30,8 @@ require 5.022; # lower would probably work, but has not been tested
 # use Time::HiRes qw (sleep);
 # alarm 10; 
 
+my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
+
 # ####
 # SUBS
 # ####
@@ -50,6 +52,39 @@ sub fix_date($)
   return sprintf "20%02d-%02d-%02d",$3,$1,$2;
 }
 
+sub init_gp()
+{
+  return qq{
+    set title "$chart_title"
+    set xdata time
+      set key left
+      set timefmt "%Y-%m-%d"
+      #set logscale y
+      #unset logscale y
+      set xrange [*:*]
+      set yrange [*:*]
+  };
+}
+
+sub plot_country($$$$)
+{
+  my $plot=shift;
+  my $country=shift;
+  my $title=shift;
+  my $name=shift;
+  return qq{
+    # # total
+    # $plot "$country.dat" using 1:2:2 with labels notitle
+    # $plot "$country.dat" using 1:2 with lines title "$name - total"
+    $plot "$country.dat" using 1:2 axis x1y2 with lines $title
+    # # per day
+    # $plot "$country.dat" using 1:3:3 with labels notitle
+    # replot "$country.dat" using 1:3 with lines title "$name - per day"
+    # plot "$country.dat" using 1:4:4 with labels notitle
+    # replot "$country.dat" using 1:4 with lines title "$name"
+  };
+}
+
 # ####
 # MAIN
 # ####
@@ -61,7 +96,6 @@ sub fix_date($)
 # my $csv_file=shift || "time_series_19-covid-Confirmed.csv";
 #my $csv_file=shift || "time_series_19-covid-Deaths.csv";
 #my $chart_title="Deaths";
-my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
 open my $IN, $csv_file or die;
 
@@ -77,7 +111,8 @@ while(my $line=<$IN>){
   $line=~s/\r?\n//;
   $line=~s/"(.*), (.*)"/$2 $1/;
   my @columns=split /,/, $line;
-  my $country = lc(my $name = $columns[1]);
+  next unless $columns[1] =~ /australia/i;
+  my $country = lc(my $name = $columns[0]); # 0 = state, 1 = country
   $country=~s/ /_/g;
   $country=~s/\*//g;
   $name=~s/\*//g;
@@ -104,45 +139,36 @@ foreach my $country ( sort keys %country_counts ){
   }
 }
 
-my @order_by_country = sort { $total{$a} <=> $total{$b} } keys %country_counts;
-my $threshold_country = $order_by_country[@order_by_country - 10];
-my $threshold_count = $total{$threshold_country};
+my @order_by_country = reverse sort { $total{$a} <=> $total{$b} } keys %country_counts;
+# my $threshold_country = $order_by_country[@order_by_country - 10];
+# my $threshold_count = $total{$threshold_country};
 
-open my $PLOT, ">", "plot-everyone.gp";
+open my $EVERYONE, ">", "plot-everyone.gp";
 my $plot="plot";
-#foreach my $plot (qw(plot replot)){
-#open my $PLOT, ">", "\L$plot-$country.gp";
-  print $PLOT qq{
-    set title "$chart_title"
-    set xdata time
-      set key left
-      set timefmt "%Y-%m-%d"
-      #set logscale y
-      #unset logscale y
-      set xrange [*:*]
-      set yrange [*:*]
-  };
+print $EVERYONE init_gp();
+
 #foreach my $country (sort keys %country_counts){
-foreach my $country (reverse @order_by_country){
+
+foreach my $c (0..$#order_by_country){
+  my $country = $order_by_country[$c-1];
+  # next unless $country =~ m/china|^us$|south.korea|italy/;
+  # next unless $country =~ m/australia|singapore/;
+  # next unless $total{$country}>=$threshold_count;
   my $name=$names{$country};
-    #next unless $country =~ m/china|^us$|south.korea|italy/;
-    # next unless $country =~ m/australia|singapore/;
-    my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
-    next unless $total{$country}>=$threshold_count;
-    # my $title = qq{title "$name"};
-    print $PLOT qq{
-      # total
-      # $plot "$country.dat" using 1:2:2 with labels notitle
-      # $plot "$country.dat" using 1:2 with lines title "$name - total"
-      $plot "$country.dat" using 1:2 with lines $title
-      # per day
-      # $plot "$country.dat" using 1:3:3 with labels notitle
-      # replot "$country.dat" using 1:3 with lines title "$name - per day"
-      # plot "$country.dat" using 1:4:4 with labels notitle
-      # replot "$country.dat" using 1:4 with lines title "$name"
-    };
-    $plot="replot";
-  #}
+  # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
+  my $title = qq{title "$name (Total $total{$country})"};
+  # my $title = qq{title "$name"};
+  if($c<10){
+    my $plot=$c==0?"plot":"replot";
+    my $to_print=plot_country($plot,$country,$title,$name);
+    print $EVERYONE $to_print; 
+  }
+  foreach my $plot ("plot", "replot"){
+    open my $COUNTRY, ">", "\L$plot-$country.gp";
+    print $COUNTRY init_gp();
+    my $to_print=plot_country($plot,$country,$title,$name);
+    print $COUNTRY $to_print; 
+  }
 }
 
 print STDERR "Done\n";
