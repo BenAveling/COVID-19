@@ -1,0 +1,30 @@
+Already installed
+- git
+- perl
+- gnuplot
+
+Downloaded raw data from JHU github repository into a new directory
+
+> git clone https://github.com/CSSEGISandData/COVID-19.git
+
+cd to the directory csse_covid_19_time_series
+
+> cd COVID-19/csse_covid_19_data/csse_covid_19_time_series
+
+Use the attached perl script plot.pl to create .dat and .gp files
+
+> ./plot.pl
+
+Use gnuplot to plot selected files
+
+e.g. To plot top 10
+
+> gnuplot
+> load "plot-everyone.gp"
+
+Or to compare 2 (or more) countries.
+
+> load "plot-us.gp"
+> load "replot-australia.gp"
+
+There are other comparisons that can be done with minor edits to the file. 
