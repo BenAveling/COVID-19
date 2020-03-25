@@ -1,4 +1,4 @@
-Already installed
+Required programs:
 - git
 - perl
 - gnuplot

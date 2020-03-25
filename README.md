@@ -3,7 +3,6 @@ This is a fork of the JHU repository, in which I've created a few scripts for pl
 See:
 - csse\_covid\_19\_data/csse\_covid\_19\_time\_series/notes.txt
 - csse\_covid\_19\_data/csse\_covid\_19\_time\_series/plot.pl
-- 
 
 -----------
 
