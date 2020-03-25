@@ -69,7 +69,10 @@ sub init_gp()
     unset ytics
     set y2tics mirror
     set grid xtics
+    set grid mxtics
     set grid y2tics
+    set grid my2tics
+    set grid lt 0, lt 0 dt 2
     set term wxt background rgb "gray"
   };
 }
@@ -108,13 +111,13 @@ my %flags=(
 my %labels=(
   china=>["2020-02-04", 55000],
   italy=>["2020-03-12", 33000],
-  south_korea=>["2020-02-22", 2250],
+  south_korea=>["2020-03-20", 14250],
   singapore=>["2020-03-14", 140],
-  united_kingdom=>["2020-03-14", 140],
   japan=>["2020-03-16", 1200],
-  us=>["2020-03-11", 2600],
+  united_kingdom=>["2020-03-23", 4000],
+  australia=>["2020-03-22", 1020],
+  us=>["2020-03-22", 22000],
   taiwan=>["2020-03-11", 70],
-  australia=>["2020-03-12", 390],
 );
 
 sub plot_country($$$@)
@@ -144,7 +147,9 @@ sub plot_country($$$@)
 # this next line is useful on dos
 # @ARGV = map {glob($_)} @ARGV;
 
-my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
+# 2020-03-25 Source file has moved. 
+# my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
+my $csv_file=shift || "time_series_covid19_$chart_file\_global.csv";
 open my $IN, $csv_file or die;
 
 my $headings=<$IN>;
@@ -227,14 +232,15 @@ foreach my $c (0..$#order_by_country){
   # next unless $country =~ m/australia|singapore/;
   # next unless $total{$country}>=$threshold_count;
   my $name=$names{$country};
+  $name ="UK" if($country eq "united_kingdom");
   # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
   my $total = $total{$country};
   my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
   # my $title = qq{title "$name"};
   #if($c<$max_lines){
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
-  #if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/){
-  if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
+  if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
+  # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
   {
     # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
     my $flag=$flags{$country};
@@ -249,7 +255,8 @@ foreach my $c (0..$#order_by_country){
     if($labels{$country}){
       my $x=$labels{$country}->[0];
       my $y=$labels{$country}->[1];
-      #print $EVERYONE qq{set label "$name" at first "$x", second $y\n};
+      my $r=$labels{$country}->[2]||0;
+      print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
     }
     # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
     my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines $title lw 6 $lc};
