@@ -1,3 +1,11 @@
+This is a fork of the JHU repository, in which I've created a few scripts for plotting the data. 
+
+See:
+- csse\_covid\_19\_data/csse\_covid\_19\_time\_series/notes.txt
+- csse\_covid\_19\_data/csse\_covid\_19\_time\_series/plot.pl
+
+-----------
+
 # 2019 Novel Coronavirus COVID-19 (2019-nCoV) Data Repository by Johns Hopkins CSSE
 
 

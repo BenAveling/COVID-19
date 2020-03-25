@@ -30,6 +30,10 @@ require 5.022; # lower would probably work, but has not been tested
 # use Time::HiRes qw (sleep);
 # alarm 10; 
 
+my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
+# my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
+my $max_lines=10;
+
 # ####
 # SUBS
 # ####
@@ -50,6 +54,91 @@ sub fix_date($)
   return sprintf "20%02d-%02d-%02d",$3,$1,$2;
 }
 
+sub init_gp()
+{
+  return qq{
+    set title "$chart_title"
+    set xdata time
+    # set key left
+    set key inside left
+    set timefmt "%Y-%m-%d"
+    set logscale y2 2
+    #unset logscale
+    set xrange [*:*]
+    set yrange [*:*]
+    unset ytics
+    set y2tics mirror
+    set grid xtics
+    set grid mxtics
+    set grid y2tics
+    set grid my2tics
+    set grid lt 0, lt 0 dt 2
+    set term wxt background rgb "gray"
+  };
+}
+
+my @cols=(1..4,5,6..8);
+
+my %palette=(
+  blue=>1,
+  red=>2,
+  green=>3,
+  yellow=>4,
+  gold=>5,
+  black=>6,
+  white=>7,
+);
+
+my %flags=(
+  china=>[qw(red)],
+  japan=>[qw(red)],
+  italy=>[qw(green white red)],
+  iran=>[qw(red white white green)],
+  spain=>[qw(red yellow yellow red)],
+  germany=>[qw(black yellow red)],
+  us=>[qw(red red white white blue blue)],
+  # us=>[qw(red white blue)],
+  # us=>[qw(blue)],
+  france=>[qw(blue white red)],
+  south_korea=>[qw(red blue)],
+  switzerland=>[qw(red white)],
+  united_kingdom=>[qw(red blue white)],
+  singapore=>[qw(red white)],
+  taiwan=>[qw(red red blue)],
+  australia=>[qw(green yellow)],
+);
+
+my %labels=(
+  china=>["2020-02-04", 55000],
+  italy=>["2020-03-12", 33000],
+  south_korea=>["2020-03-20", 14250],
+  singapore=>["2020-03-14", 140],
+  japan=>["2020-03-16", 1200],
+  united_kingdom=>["2020-03-23", 4000],
+  australia=>["2020-03-22", 1020],
+  us=>["2020-03-22", 22000],
+  taiwan=>["2020-03-11", 70],
+);
+
+sub plot_country($$$@)
+{
+  my $plot=shift;
+  my $country=shift;
+  my $title=shift;
+  my $other="@_";
+  return qq{$plot "$country.dat" using 1:2:5 axis x1y2 with lines $title lw 6 $other};
+  # return qq{$plot "$country.dat" using 1:2 axis x1y2 with lines $title lw 1 $other};
+  # return qq{$plot "$country.dat" using 1:2 axis x1y2 with linespoints $title $other};
+    # # total
+    # $plot "$country.dat" using 1:2:2 with labels notitle
+    # $plot "$country.dat" using 1:2 with lines title "$name - total"
+    # # per day
+    # $plot "$country.dat" using 1:3:3 with labels notitle
+    # replot "$country.dat" using 1:3 with lines title "$name - per day"
+    # plot "$country.dat" using 1:4:4 with labels notitle
+    # replot "$country.dat" using 1:4 with lines title "$name"
+}
+
 # ####
 # MAIN
 # ####
@@ -58,11 +147,9 @@ sub fix_date($)
 # this next line is useful on dos
 # @ARGV = map {glob($_)} @ARGV;
 
-# my $csv_file=shift || "time_series_19-covid-Confirmed.csv";
-#my $csv_file=shift || "time_series_19-covid-Deaths.csv";
-#my $chart_title="Deaths";
-my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
-my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
+# 2020-03-25 Source file has moved. 
+# my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
+my $csv_file=shift || "time_series_covid19_$chart_file\_global.csv";
 open my $IN, $csv_file or die;
 
 my $headings=<$IN>;
@@ -77,7 +164,9 @@ while(my $line=<$IN>){
   $line=~s/\r?\n//;
   $line=~s/"(.*), (.*)"/$2 $1/;
   my @columns=split /,/, $line;
-  my $country = lc(my $name = $columns[1]);
+  # next unless $columns[1] =~ /australia/i; next if $columns[0] =~ /diamond.princess/i;
+  # my $country = lc(my $name = $columns[0]); # 0 = state, 1 = country
+  my $country = lc(my $name = $columns[1]); # 0 = state, 1 = country
   $country=~s/ /_/g;
   $country=~s/\*//g;
   $name=~s/\*//g;
@@ -91,6 +180,8 @@ while(my $line=<$IN>){
 }
 foreach my $country ( sort keys %country_counts ){
   my @last=();
+  my $c=0;
+  my $flag=$flags{$country};
   open(my $DAT,">","\L$country.dat") or die;
   my $values=$country_counts{$country};
   foreach my $date ( sort keys %{$values} ){
@@ -99,50 +190,87 @@ foreach my $country ( sort keys %country_counts ){
     my $prev = @last ? $last[$#last] : 0;
     my $delta=$value-$prev;
     my $ratio=$prev?sprintf("%.2f%%",($value/$prev-1)*100):'-';
-    print $DAT "$date\t$value $delta $ratio\n";
     push @last,$value;
+    #$value = '-' if $value<3;
+    my $colour="";
+    if($flag){
+      $colour=$palette{$flag->[($c++) % @{$flag}]};
+    }
+    print $DAT "$date\t$value $delta $ratio $colour\n";
   }
 }
 
-my @order_by_country = sort { $total{$a} <=> $total{$b} } keys %country_counts;
-my $threshold_country = $order_by_country[@order_by_country - 10];
-my $threshold_count = $total{$threshold_country};
+my @order_by_country = reverse sort { $total{$a} <=> $total{$b} } keys %country_counts;
+# my $threshold_country = $order_by_country[@order_by_country - 10];
+# my $threshold_count = $total{$threshold_country};
 
-open my $PLOT, ">", "plot-everyone.gp";
-my $plot="plot";
-#foreach my $plot (qw(plot replot)){
-#open my $PLOT, ">", "\L$plot-$country.gp";
-  print $PLOT qq{
-    set title "$chart_title"
-    set xdata time
-      set key left
-      set timefmt "%Y-%m-%d"
-      #set logscale y
-      #unset logscale y
-      set xrange [*:*]
-      set yrange [*:*]
-  };
+open my $EVERYONE, ">", "plot-everyone.gp";
+# my $plot="plot";
+print $EVERYONE init_gp();
+print $EVERYONE q{
+set palette maxcolors 7
+set palette defined ( \
+  1 'blue', \
+  2 'red', \
+  3 'green', \
+  4 'yellow', \
+  5 'gold', \
+  6 'black', \
+  7 'white', \
+
+  unset label
+  set key outside left
+};
+# 5 'yellow')
+
 #foreach my $country (sort keys %country_counts){
-foreach my $country (reverse @order_by_country){
+
+my $everyone_plot="plot";
+foreach my $c (0..$#order_by_country){
+  my $country = $order_by_country[$c];
+  # next unless $country =~ m/china|^us$|south.korea|italy/;
+  # next unless $country =~ m/australia|singapore/;
+  # next unless $total{$country}>=$threshold_count;
   my $name=$names{$country};
-    #next unless $country =~ m/china|^us$|south.korea|italy/;
-    # next unless $country =~ m/australia|singapore/;
-    my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
-    next unless $total{$country}>=$threshold_count;
-    # my $title = qq{title "$name"};
-    print $PLOT qq{
-      # total
-      # $plot "$country.dat" using 1:2:2 with labels notitle
-      # $plot "$country.dat" using 1:2 with lines title "$name - total"
-      $plot "$country.dat" using 1:2 with lines $title
-      # per day
-      # $plot "$country.dat" using 1:3:3 with labels notitle
-      # replot "$country.dat" using 1:3 with lines title "$name - per day"
-      # plot "$country.dat" using 1:4:4 with labels notitle
-      # replot "$country.dat" using 1:4 with lines title "$name"
-    };
-    $plot="replot";
-  #}
+  $name ="UK" if($country eq "united_kingdom");
+  # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
+  my $total = $total{$country};
+  my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
+  # my $title = qq{title "$name"};
+  #if($c<$max_lines){
+  # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
+  if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
+  # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
+  {
+    # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
+    my $flag=$flags{$country};
+    my $lc=" lc ";
+    my $color_column="";
+    if($flag){
+      $lc.="palette";
+      $color_column=":5";
+    }else{
+      $lc.=$cols[$c%8];
+    }
+    if($labels{$country}){
+      my $x=$labels{$country}->[0];
+      my $y=$labels{$country}->[1];
+      my $r=$labels{$country}->[2]||0;
+      print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
+    }
+    # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
+    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines $title lw 6 $lc};
+    $everyone_plot="replot";
+    print $EVERYONE $to_print,"\n"; 
+  }
+  foreach my $country_plot ("plot", "replot"){
+    open my $COUNTRY, ">", "\L$country_plot-$country.gp";
+    print $COUNTRY init_gp();
+    print $COUNTRY qq{unset label\nset key inside left\n};
+    # my $to_print=plot_country($country_plot,$country,$title);
+    my $to_print=qq{$country_plot "$country.dat" using 1:2 axis x1y2 with lines $title lw 6};
+    print $COUNTRY $to_print,"\n"; 
+  }
 }
 
 print STDERR "Done\n";
