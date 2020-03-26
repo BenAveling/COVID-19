@@ -23,7 +23,7 @@ use autodie;
 require 5.022; # lower would probably work, but has not been tested
 
 # use Carp;
-# use Data::Dumper;
+use Data::Dumper;
 # print Dumper $data;
 # use FindBin;
 # use lib "$FindBin::Bin/libs";
@@ -139,6 +139,33 @@ sub plot_country($$$@)
     # replot "$country.dat" using 1:4 with lines title "$name"
 }
 
+my %pop;
+
+sub read_pop
+{
+  open(my $POP,"country_population.txt") or die;
+  while(<$POP>){
+    next if m/^\s*#|^\s*$/;
+    my @fields=split /\t/, $_;
+    my $country=shift @fields or die "Not enough fields: '$_'";
+    my $region=shift @fields or die "Not enough fields: '$_'";
+    my $subregion=shift @fields or die "Not enough fields: '$_'";
+    my $pop2018=shift @fields or die "Not enough fields: '$_'";
+    my $pop2019=shift @fields or die "Not enough fields: '$_'";
+    my $change=shift @fields or die "Not enough fields: '$_'";
+    die "More fields than expected: $_" if @fields;
+    $country=~s/\[.*\]//;
+    $country=~s/ /_/g;
+    $pop2019=~s/,//g;
+    $pop{"\L$country"}=$pop2019;
+  }
+  $pop{"us"}=$pop{"united_states"};
+  $pop{"holy_see"}=$pop{"vatican_city"};
+  $pop{"timor-leste"}=$pop{"east_timor"};
+  print Dumper \%pop;
+  # exit;
+}
+
 # ####
 # MAIN
 # ####
@@ -159,6 +186,8 @@ my %country_counts;
 my %names;
 
 my %total;
+
+read_pop();
 
 while(my $line=<$IN>){
   $line=~s/\r?\n//;
@@ -182,6 +211,10 @@ foreach my $country ( sort keys %country_counts ){
   my @last=();
   my $c=0;
   my $flag=$flags{$country};
+  my $pop=$pop{$country};
+  if(!$pop){
+    warn "missing population data for $country\n";
+  }
   open(my $DAT,">","\L$country.dat") or die;
   my $values=$country_counts{$country};
   foreach my $date ( sort keys %{$values} ){
@@ -235,12 +268,13 @@ foreach my $c (0..$#order_by_country){
   $name ="UK" if($country eq "united_kingdom");
   # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
   my $total = $total{$country};
-  my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
+  my $title = $total > 250 ? qq{title "$name (Total $total/$pop{$country})"} : "notitle";
   # my $title = qq{title "$name"};
   #if($c<$max_lines){
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
-  if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
+  # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
   # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
+  if($country=~m/^(us|italy|south_korea|china|united_kingdom)$/)
   {
     # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
     my $flag=$flags{$country};
@@ -258,8 +292,13 @@ foreach my $c (0..$#order_by_country){
       my $r=$labels{$country}->[2]||0;
       print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
     }
+    if(!$pop{$country}){
+      warn "skipping $country\n";
+      next;
+    }
     # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
-    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines $title lw 6 $lc};
+    # my $to_print=qq{$everyone_plot "$country.dat" using 1:$color_column axis x1y2 with lines $title lw 6 $lc};
+    my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
     $everyone_plot="replot";
     print $EVERYONE $to_print,"\n"; 
   }
