@@ -30,7 +30,7 @@ use Data::Dumper;
 # use Time::HiRes qw (sleep);
 # alarm 10; 
 
-my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
+my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
 my $max_lines=10;
 
@@ -62,10 +62,12 @@ sub init_gp()
     # set key left
     set key inside left
     set timefmt "%Y-%m-%d"
-    set logscale y2 2
+    #set logscale y2 2
+    set logscale y2
     #unset logscale
-    set xrange [*:*]
-    set yrange [*:*]
+    set xrange ["2020-02-01":"2020-04-30"]
+    set y2range [.00001:100]
+    set format y2 "%0.6f%%"
     unset ytics
     set y2tics mirror
     set grid xtics
@@ -93,7 +95,7 @@ my %flags=(
   china=>[qw(red)],
   japan=>[qw(red)],
   italy=>[qw(green white red)],
-  iran=>[qw(red white white green)],
+  iran=>[qw(red red white white green green)],
   spain=>[qw(red yellow yellow red)],
   germany=>[qw(black yellow red)],
   us=>[qw(red red white white blue blue)],
@@ -162,7 +164,7 @@ sub read_pop
   $pop{"us"}=$pop{"united_states"};
   $pop{"holy_see"}=$pop{"vatican_city"};
   $pop{"timor-leste"}=$pop{"east_timor"};
-  print Dumper \%pop;
+  # print Dumper \%pop;
   # exit;
 }
 
@@ -274,7 +276,8 @@ foreach my $c (0..$#order_by_country){
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
   # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
   # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
-  if($country=~m/^(us|italy|south_korea|china|united_kingdom)$/)
+  #if($country=~m/^(us|italy|south_korea|china|united_kingdom|australia)$/)
+  if($country=~m/^(china|north_korea|iran|italy|spain|us)$/)
   {
     # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
     my $flag=$flags{$country};

@@ -1,3 +1,5 @@
+2020-03-26 22:39:04 - this version plots relative to population size.
+
 [Upcoming changes in time series tables (3/22)](https://github.com/CSSEGISandData/COVID-19/issues/1250)
 
 <b>---DEPRICATED WARNING---</b><br>
