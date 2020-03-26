@@ -30,7 +30,8 @@ use Data::Dumper;
 # use Time::HiRes qw (sleep);
 # alarm 10; 
 
-my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
+# my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
+my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
 my $max_lines=10;
 
@@ -62,12 +63,14 @@ sub init_gp()
     # set key left
     set key inside left
     set timefmt "%Y-%m-%d"
-    #set logscale y2 2
-    set logscale y2
-    #unset logscale
-    set xrange ["2020-02-01":"2020-04-30"]
-    set y2range [.00001:100]
-    set format y2 "%0.6f%%"
+    # set logscale y2 2
+    # set logscale y2
+    unset logscale
+    # set xrange ["2020-02-01":"2020-04-30"]
+    set xrange [*:*]
+    #set y2range [.00001:100]
+    set y2range [0:*]
+    # set format y2 "%0.6f%%"
     unset ytics
     set y2tics mirror
     set grid xtics
@@ -189,7 +192,7 @@ my %names;
 
 my %total;
 
-read_pop();
+# read_pop();
 
 while(my $line=<$IN>){
   $line=~s/\r?\n//;
@@ -213,10 +216,10 @@ foreach my $country ( sort keys %country_counts ){
   my @last=();
   my $c=0;
   my $flag=$flags{$country};
-  my $pop=$pop{$country};
-  if(!$pop){
-    warn "missing population data for $country\n";
-  }
+  # my $pop=$pop{$country};
+  # if(!$pop){
+    # warn "missing population data for $country\n";
+    # }
   open(my $DAT,">","\L$country.dat") or die;
   my $values=$country_counts{$country};
   foreach my $date ( sort keys %{$values} ){
@@ -270,7 +273,8 @@ foreach my $c (0..$#order_by_country){
   $name ="UK" if($country eq "united_kingdom");
   # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
   my $total = $total{$country};
-  my $title = $total > 250 ? qq{title "$name (Total $total/$pop{$country})"} : "notitle";
+  my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
+  # my $title = $total > 250 ? qq{title "$name (Total $total/$pop{$country})"} : "notitle";
   # my $title = qq{title "$name"};
   #if($c<$max_lines){
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
@@ -295,13 +299,13 @@ foreach my $c (0..$#order_by_country){
       my $r=$labels{$country}->[2]||0;
       print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
     }
-    if(!$pop{$country}){
-      warn "skipping $country\n";
-      next;
-    }
+    #if(!$pop{$country}){
+    #warn "skipping $country\n";
+    #next;
+    #}
     # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
-    # my $to_print=qq{$everyone_plot "$country.dat" using 1:$color_column axis x1y2 with lines $title lw 6 $lc};
-    my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
+    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines $title lw 6 $lc};
+    # my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
     $everyone_plot="replot";
     print $EVERYONE $to_print,"\n"; 
   }
