@@ -1,3 +1,4 @@
+2020-03-27 10:12:59 - plot deaths and confirmeds. undid previous change (code is still there).
 2020-03-26 22:39:04 - this version plots relative to population size.
 
 [Upcoming changes in time series tables (3/22)](https://github.com/CSSEGISandData/COVID-19/issues/1250)
