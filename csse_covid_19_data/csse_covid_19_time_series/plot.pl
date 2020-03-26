@@ -182,36 +182,39 @@ sub read_pop
 # 2020-03-25 Source file has moved. 
 # my $csv_file=shift || "time_series_19-covid-$chart_file.csv";
 my $csv_file=shift || "time_series_covid19_$chart_file\_global.csv";
-open my $IN, $csv_file or die;
-
-my $headings=<$IN>;
-my @headings=map {fix_date($_)} split /,/, $headings;
 
 my %country_counts;
+my %total;
 my %names;
 
-my %total;
-
-# read_pop();
-
-while(my $line=<$IN>){
-  $line=~s/\r?\n//;
-  $line=~s/"(.*), (.*)"/$2 $1/;
-  my @columns=split /,/, $line;
-  # next unless $columns[1] =~ /australia/i; next if $columns[0] =~ /diamond.princess/i;
-  # my $country = lc(my $name = $columns[0]); # 0 = state, 1 = country
-  my $country = lc(my $name = $columns[1]); # 0 = state, 1 = country
-  $country=~s/ /_/g;
-  $country=~s/\*//g;
-  $name=~s/\*//g;
-  $names{$country} = $name;
-  # next unless $country =~ /Australia/;
-  for my $i (5..$#columns){
-    my $count = $columns[$i]||0;
-    $country_counts{$country}{$headings[$i]}+=$count;
+sub read_csv($){
+  my $csv_file=shift || "time_series_covid19_$chart_file\_global.csv";
+  open my $IN, $csv_file or die;
+  my $headings=<$IN>;
+  my @headings=map {fix_date($_)} split /,/, $headings;
+  # read_pop();
+  while(my $line=<$IN>){
+    $line=~s/\r?\n//;
+    $line=~s/"(.*), (.*)"/$2 $1/;
+    my @columns=split /,/, $line;
+    # next unless $columns[1] =~ /australia/i; next if $columns[0] =~ /diamond.princess/i;
+    # my $country = lc(my $name = $columns[0]); # 0 = state, 1 = country
+    my $country = lc(my $name = $columns[1]); # 0 = state, 1 = country
+    $country=~s/ /_/g;
+    $country=~s/\*//g;
+    $name=~s/\*//g;
+    $names{$country} = $name;
+    # next unless $country =~ /Australia/;
+    for my $i (5..$#columns){
+      my $count = $columns[$i]||0;
+      $country_counts{$country}{$headings[$i]}+=$count;
+    }
+    $total{$country} += $columns[$#columns];
   }
-  $total{$country} += $columns[$#columns];
 }
+
+read_csv($csv_file);
+
 foreach my $country ( sort keys %country_counts ){
   my @last=();
   my $c=0;
