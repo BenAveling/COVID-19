@@ -63,9 +63,9 @@ sub init_gp()
     # set key left
     set key inside left
     set timefmt "%Y-%m-%d"
-    # set logscale y2 2
+    set logscale y2 2
     # set logscale y2
-    unset logscale
+    # unset logscale
     # set xrange ["2020-02-01":"2020-04-30"]
     set xrange [*:*]
     #set y2range [.00001:100]
@@ -186,6 +186,10 @@ my %country_counts;
 my %total;
 my %names;
 
+# my $plot_country="australia";
+# my $plot_country="us";
+my $plot_country=undef;
+
 sub read_csv($){
   my $series=shift || die;
   my $csv_file="time_series_covid19_$series\_global.csv";
@@ -197,19 +201,25 @@ sub read_csv($){
     $line=~s/\r?\n//;
     $line=~s/"(.*), (.*)"/$2 $1/;
     my @columns=split /,/, $line;
-    # next unless $columns[1] =~ /australia/i; next if $columns[0] =~ /diamond.princess/i;
-    # my $country = lc(my $name = $columns[0]); # 0 = state, 1 = country
-    my $country = lc(my $name = $columns[1]); # 0 = state, 1 = country
-    $country=~s/ /_/g;
-    $country=~s/\*//g;
+    my $name;
+    if($plot_country){
+      next unless $columns[1] =~ /$plot_country/i; next if $columns[0] =~ /diamond.princess/i;
+      $name = $columns[0]; # 0 = state
+      print "'$plot_country' > '$columns[1]' > '$name'\n";
+    }else{
+      $name = $columns[1]; # 1 = country
+    }
+    my $region = lc($name);
+    $region=~s/ /_/g;
+    $region=~s/\*//g;
     $name=~s/\*//g;
-    $names{$country} = $name;
+    $names{$region} = $name;
     # next unless $country =~ /Australia/;
     for my $i (5..$#columns){
       my $count = $columns[$i]||0;
-      $country_counts{$country}{$headings[$i]}{$series}+=$count;
+      $country_counts{$region}{$headings[$i]}{$series}+=$count;
     }
-    $total{$country}{$series} += $columns[$#columns];
+    $total{$region}{$series} += $columns[$#columns];
   }
 }
 
@@ -279,17 +289,17 @@ foreach my $c (0..$#order_by_country){
   # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
   my $total = $total{$country};
   #FIXME
-  #my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
-  my $title = qq{title "$name (Total $total)"};
+  my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
+  #my $title = qq{title "$name (Total $total)"};
   # my $title = $total > 250 ? qq{title "$name (Total $total/$pop{$country})"} : "notitle";
   # my $title = qq{title "$name"};
   #if($c<$max_lines){
-  # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/){
+  if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
   # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
   # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
   #if($country=~m/^(us|italy|south_korea|china|united_kingdom|australia)$/)
   #if($country=~m/^(china|north_korea|iran|italy|spain|us)$/)
-  if($country=~m/^(italy|us)$/)
+  # if($plot_country || $country=~m/^(italy|us)$/)
   {
     # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
     my $flag=$flags{$country};
@@ -312,9 +322,12 @@ foreach my $c (0..$#order_by_country){
     #next;
     #}
     # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
+    ### Plot absolute numbers ###
     my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines title "$name $total->{Confirmed} confirmed cases" lw 6 $lc\n};
     $everyone_plot="replot";
-    $to_print.=qq{$everyone_plot "$country.dat" using 1:3$color_column axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n};
+    ### plot deaths ###
+    # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$color_column axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n};
+    ### Plot relative to population ###
     # my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
     print $EVERYONE $to_print,"\n"; 
   }
