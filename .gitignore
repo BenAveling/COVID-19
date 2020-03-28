@@ -3,3 +3,5 @@
 *.gp
 .*.sw*
 *~
+*.out
+diff.diff

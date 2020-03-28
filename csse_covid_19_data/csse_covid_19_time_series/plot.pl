@@ -58,7 +58,8 @@ sub fix_date($)
 sub init_gp()
 {
   return qq{
-    # set title "\$chart_title"
+  # set title "New confirmed cases/deaths per day"
+    set title "Confirmed cases"
     set xdata time
     # set key left
     set key inside left
@@ -68,8 +69,12 @@ sub init_gp()
     # unset logscale
     # set xrange ["2020-02-01":"2020-04-30"]
     set xrange [*:*]
+    #suitable for logscale, whole of population
     #set y2range [.00001:100]
-    set y2range [0:*]
+    #suitable for logscale, actual counts
+    set y2range [1:*]
+    #suitable for linear
+    #set y2range [0:*]
     # set format y2 "%0.6f%%"
     unset ytics
     set y2tics mirror
@@ -77,7 +82,7 @@ sub init_gp()
     set grid mxtics
     set grid y2tics
     set grid my2tics
-    set grid lt 0, lt 0 dt 2
+    set grid lt 1, lt 0 dt 2
     set term wxt background rgb "gray"
   };
 }
@@ -111,6 +116,9 @@ my %flags=(
   singapore=>[qw(red white)],
   taiwan=>[qw(red red blue)],
   australia=>[qw(green yellow)],
+  brazil=>[qw(green yellow blue)],
+  saudi_arabia=>[qw(green)],
+  diamond_princes=>[qw(red)],
 );
 
 my %labels=(
@@ -186,9 +194,11 @@ my %country_counts;
 my %total;
 my %names;
 
+my $plot_country=undef;
 # my $plot_country="australia";
 # my $plot_country="us";
-my $plot_country=undef;
+
+my $do_plot_deaths=0;
 
 sub read_csv($){
   my $series=shift || die;
@@ -203,7 +213,8 @@ sub read_csv($){
     my @columns=split /,/, $line;
     my $name;
     if($plot_country){
-      next unless $columns[1] =~ /$plot_country/i; next if $columns[0] =~ /diamond.princess/i;
+      next unless $columns[1] =~ /$plot_country/i;
+      # next if $columns[0] =~ /diamond.princess/i;
       $name = $columns[0]; # 0 = state
       print "'$plot_country' > '$columns[1]' > '$name'\n";
     }else{
@@ -227,8 +238,17 @@ foreach my $series (qw(Confirmed Deaths)){
   read_csv($series );
 }
 
-foreach my $country ( sort keys %country_counts ){
-  my @last=();
+sub cmp_region($$)
+{
+  my $a=shift;
+  my $b=shift;
+  my $val_a=$total{$a}->{Confirmed};
+  my $val_b=$total{$b}->{Confirmed};
+  return $val_a <=> $val_b;
+}
+
+foreach my $country ( keys %country_counts ){
+  #my @last=();
   my $c=0;
   my $flag=$flags{$country};
   # my $pop=$pop{$country};
@@ -237,11 +257,16 @@ foreach my $country ( sort keys %country_counts ){
     # }
   open(my $DAT,">","\L$country.dat") or die;
   my $values=$country_counts{$country};
+  my $prev_confirmed;
   foreach my $date ( sort keys %{$values} ){
     my $value=$values->{$date};
+    my $confirmed=$value->{Confirmed};
+    my $deaths=$value->{Deaths};
     # my $prev = @last>6 ? $last[$#last-6] : 0;
     # my $prev = @last ? $last[$#last] : 0;
-    # my $delta=$value-$prev;
+    my $delta="-";
+    $delta=$confirmed-$prev_confirmed if($prev_confirmed);
+    $prev_confirmed=$confirmed;
     # my $ratio=$prev?sprintf("%.2f%%",($value/$prev-1)*100):'-';
     # push @last,$value;
     #$value = '-' if $value<3;
@@ -249,11 +274,14 @@ foreach my $country ( sort keys %country_counts ){
     if($flag){
       $colour=$palette{$flag->[($c++) % @{$flag}]};
     }
-    print $DAT "$date\t$value->{Confirmed} $value->{Deaths} - $colour\n";
+    # print "$confirmed='-' if($confirmed == $total{$country}->{Confirmed} && $delta == 0);\n";
+    $confirmed='-' if($confirmed == $total{$country}->{Confirmed} && ($delta eq '-' || $delta == 0));
+    print $DAT "$date\t$confirmed $deaths $delta $colour\n";
   }
 }
 
-my @order_by_country = reverse sort { $total{$a} <=> $total{$b} } keys %country_counts;
+my @order_by_country = reverse sort {cmp_region($a,$b)} keys %country_counts;
+
 # my $threshold_country = $order_by_country[@order_by_country - 10];
 # my $threshold_count = $total{$threshold_country};
 
@@ -272,11 +300,27 @@ set palette defined ( \
   7 'white', \
 
   unset label
-  set key outside left
+  # set key outside left
+  set key inside left
 };
 # 5 'yellow')
 
 #foreach my $country (sort keys %country_counts){
+sub line_color($$)
+{
+  my $country=shift;
+  my $c=shift;
+  my $flag=$flags{$country};
+  my $lc=" lc ";
+  my $cc="";
+  if($flag){
+    $lc.="palette";
+    $cc=":5";
+  }else{
+    $lc.=$cols[$c%8];
+  }
+  return ($cc,$lc);
+}
 
 my $everyone_plot="plot";
 foreach my $c (0..$#order_by_country){
@@ -286,15 +330,14 @@ foreach my $c (0..$#order_by_country){
   # next unless $total{$country}>=$threshold_count;
   my $name=$names{$country};
   $name ="UK" if($country eq "united_kingdom");
-  # my $title = $total{$country}>=$threshold_count? qq{title "$name (Total $total{$country})"} : "notitle";
-  my $total = $total{$country};
+  my $tc = $total{$country};
+  my $confirmed = $tc->{Confirmed};
+  my $deaths = $tc->{Deaths};
+  my $country_total = "$confirmed confirmed cases, $deaths deaths";
   #FIXME
-  my $title = $total > 250 ? qq{title "$name (Total $total)"} : "notitle";
-  #my $title = qq{title "$name (Total $total)"};
-  # my $title = $total > 250 ? qq{title "$name (Total $total/$pop{$country})"} : "notitle";
-  # my $title = qq{title "$name"};
+  my $title = $tc->{Confirmed} > 250 ? qq{title "$name - $confirmed cases"} : "notitle";
   #if($c<$max_lines){
-  if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
+  # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
   # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
   # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
   #if($country=~m/^(us|italy|south_korea|china|united_kingdom|australia)$/)
@@ -302,28 +345,15 @@ foreach my $c (0..$#order_by_country){
   # if($plot_country || $country=~m/^(italy|us)$/)
   {
     # my $to_print=plot_country($plot,$country,$title," dt ".(1+$c%5), " lc ",$cols[$c%7]);
-    my $flag=$flags{$country};
-    my $lc=" lc ";
-    my $color_column="";
-    if($flag){
-      $lc.="palette";
-      $color_column=":5";
-    }else{
-      $lc.=$cols[$c%8];
-    }
+    my ($cc,$lc)=line_color($country,$c);
     if($labels{$country}){
       my $x=$labels{$country}->[0];
       my $y=$labels{$country}->[1];
       my $r=$labels{$country}->[2]||0;
       #print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
     }
-    #if(!$pop{$country}){
-    #warn "skipping $country\n";
-    #next;
-    #}
-    # my $to_print=plot_country($everyone_plot,$country,$title,$lc);
     ### Plot absolute numbers ###
-    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$color_column axis x1y2 with lines title "$name $total->{Confirmed} confirmed cases" lw 6 $lc\n};
+    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
     $everyone_plot="replot";
     ### plot deaths ###
     # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$color_column axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n};
@@ -331,13 +361,18 @@ foreach my $c (0..$#order_by_country){
     # my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
     print $EVERYONE $to_print,"\n"; 
   }
+  my ($cc,$lc)=line_color($country,$c);
   foreach my $country_plot ("plot", "replot"){
     open my $COUNTRY, ">", "\L$country_plot-$country.gp";
     print $COUNTRY init_gp();
     print $COUNTRY qq{unset label\nset key inside left\n};
     # my $to_print=plot_country($country_plot,$country,$title);
-    my $to_print=qq{$country_plot "$country.dat" using 1:2 axis x1y2 with lines $title lw 6\n};
-    $to_print.=qq{replot "$country.dat" using 1:3 axis x1y2 with lines notitle lw 6\n};
+    my $to_print=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
+    #if($do_plot_deaths) {
+      $to_print.=qq{replot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths" $lc lw 6\n};
+      #}
+    # ## Delta ## #
+    # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with lines title "$name" lw 6\n};
     print $COUNTRY $to_print;
   }
 }
