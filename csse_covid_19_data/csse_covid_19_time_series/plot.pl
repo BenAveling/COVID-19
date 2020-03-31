@@ -205,6 +205,7 @@ sub read_pop
     $country=~s/ /_/g;
     $pop2019=~s/,//g;
     $pop{"\L$country"}=$pop2019;
+    $pop{grand_total}+=$pop2019;
   }
   $pop{"us"}=$pop{"united_states"};
   $pop{"holy_see"}=$pop{"vatican_city"};
@@ -240,7 +241,7 @@ sub read_csv($){
   open my $IN, $csv_file or die;
   my $headings=<$IN>;
   my @headings=map {fix_date($_)} split /,/, $headings;
-  # read_pop();
+  read_pop();
   while(my $line=<$IN>){
     $line=~s/\r?\n//;
     $line=~s/"(.*), (.*)"/$2 $1/;
@@ -380,7 +381,13 @@ foreach my $c (0..$#order_by_country){
     ### plot deaths ###
     # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n} if $plot_deaths;
     ### Plot relative to population ###
-    # my $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$color_column axis x1y2 with lines $title lw 6 $lc};
+    if(0){
+      if(!$pop{$country}){
+        print "population of $country unknown\n";
+      }else{
+        $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$cc axis x1y2 with lines $title lw 6 $lc};
+      }
+    }
     print $EVERYONE $to_print,"\n"; 
   }
   my ($cc,$lc)=line_color($country,$c);
@@ -396,6 +403,18 @@ foreach my $c (0..$#order_by_country){
     # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with lines title "$name" lw 6\n};
     # deaths per day
     # $to_print=qq{$country_plot "$country.dat" using 1:5 axis x1y2 with lines title "$name" lw 6\n};
+    # ## Plot relative to population ## #
+    if(0){
+      if(!$pop{$country}){
+        print "population of $country unknown\n";
+      }else{
+        $to_print=qq{
+        set logscale y2 10
+        set y2range [0.0000001:100]
+        set format y2 "%0.6f%%"
+        plot "$country.dat" using 1:(\$2/$pop{$country}*100)$cc axis x1y2 with lines $title lw 6 $lc};
+      }
+    }
     print $COUNTRY $to_print;
   }
 }
