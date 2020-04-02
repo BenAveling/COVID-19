@@ -79,15 +79,19 @@ sub init_palette()
 {
   open my $PALETTE, '>', 'palette.gp' or die "Can't write palette.gp: $!";
 print $PALETTE qq{
-set palette maxcolors 7
+set palette maxcolors 2
+# set palette maxcolors 7
 set palette defined ( \\
-  1 'red', \\
   2 'gold', \\
-  3 'blue', \\
-  4 'yellow', \\
   5 'green', \\
-  6 'black', \\
-  7 'white', \\
+
+# 1 'red', \\
+# 2 'gold', \\
+# 3 'blue', \\
+# 4 'yellow', \\
+# 5 'green', \\
+# 6 'black', \\
+# 7 'white', \\
 
   unset label
 };
@@ -233,11 +237,11 @@ my $plot_country=undef;
 # $plot_country="australia";
 # my $plot_country="us";
 
-my $plot_deaths=1;
+my $plot_deaths=0;
 
 sub read_csv($){
   my $series=shift || die;
-  my $csv_file="time_series_covid19_$series\_global.csv";
+  my $csv_file="time_series_covid19_\l$series\_global.csv";
   open my $IN, $csv_file or die;
   my $headings=<$IN>;
   my @headings=map {fix_date($_)} split /,/, $headings;
