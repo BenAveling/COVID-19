@@ -5,8 +5,8 @@
 # This script extracts deltas from time_series_19-covid .csv files
 # and creates .dat files suitable for gnuplot
 #
-my $usage = qq{Usage:
-  perl plot.pl
+my $usage = q{Usage:
+  perl plot.pl [-d|delta] [-m|mortality] [country]
 };
 # ######################################################################
 # History:
@@ -82,16 +82,13 @@ print $PALETTE qq{
 set palette maxcolors 2
 # set palette maxcolors 7
 set palette defined ( \\
-  2 'gold', \\
-  5 'green', \\
-
-# 1 'red', \\
-# 2 'gold', \\
-# 3 'blue', \\
-# 4 'yellow', \\
-# 5 'green', \\
-# 6 'black', \\
-# 7 'white', \\
+   1 'red', \\
+   2 'gold', \\
+   3 'blue', \\
+   4 'yellow', \\
+   5 'green', \\
+   6 'black', \\
+   7 'white', \\
 
   unset label
 };
@@ -107,13 +104,15 @@ sub init_gp()
     set xdata time
     set key left
     set timefmt "%Y-%m-%d"
-    set logscale y2 10
-    # set logscale y2
-    # unset logscale
+    # set logscale y2 10
+    # set logscale y2 2
+    unset logscale
     set xrange ["2020-02-20":"2020-04-20"]
-    set xrange ["2020-02-20":*]
+    # set xrange ["2020-02-20":*]
     # set xrange [*:*]
     #suitable for logscale, whole of population
+    set yrange [0:*]
+    set y2range [0:*]
     #set y2range [.00001:100]
     #suitable for logscale, actual counts
     set y2range [1:*]
@@ -121,8 +120,10 @@ sub init_gp()
     #set y2range [0:*]
     # set format y2 "%0.6f%%"
     set format y2 "%6.0f"
+    # set ytics
     unset ytics
-    set y2tics mirror
+    # set y2tics mirror
+    set y2tics nomirror
     set grid xtics
     set grid mxtics
     set grid y2tics
@@ -238,6 +239,19 @@ my $plot_country=undef;
 # my $plot_country="us";
 
 my $plot_deaths=0;
+my $plot_delta=0;
+
+foreach(@ARGV){
+  if(m/-d|delta/){
+    $plot_delta=1;
+  }elsif(m/-m|mort/){
+    print ">> plot deaths\n";
+    $plot_deaths=1;
+  }else{
+    print ">> plot deltas\n";
+    $plot_country=$_;
+  }
+}
 
 sub read_csv($){
   my $series=shift || die;
@@ -361,9 +375,10 @@ foreach my $c (0..$#order_by_country){
   my $tc = $total{$country};
   my $confirmed = $tc->{Confirmed};
   my $deaths = $tc->{Deaths};
-  my $country_total = "$confirmed confirmed cases, $deaths deaths";
+  # my $country_total = "$confirmed confirmed cases, $deaths deaths";
+  my $country_total = "$confirmed cases";
   my $title = qq{title "$name - $confirmed cases"};
-  if($c<$max_lines)
+  if($c<$max_lines && $country ne "grand_total")
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
   # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
   # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
@@ -379,8 +394,10 @@ foreach my $c (0..$#order_by_country){
       my $r=$labels{$country}->[2]||0;
       #print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
     }
-    ### Plot absolute numbers ###
+    ### Plot number of cases ###
     my $to_print=qq{$everyone_plot "$country.dat" using 1:2$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
+    # -- case v deaths --
+    # $to_print=qq{unset xdata;$everyone_plot "$country.dat" using 2:3$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
     $everyone_plot="replot";
     ### plot deaths ###
     # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n} if $plot_deaths;
@@ -401,14 +418,18 @@ foreach my $c (0..$#order_by_country){
     print $COUNTRY qq{unset label\nset key inside\n};
     # my $to_print=plot_country($country_plot,$country,$title);
     my $to_print=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
-    $to_print.=qq{replot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths" $lc lw 6\n} if $plot_deaths;
+    ### plot deaths ###
+    my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
+    $to_print.=qq{replot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n} if $plot_deaths;
     # ## Delta ## #
     # cases per day
-    # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with lines title "$name" lw 6\n};
+    if($plot_delta){
+      $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
+    }
     # deaths per day
     # $to_print=qq{$country_plot "$country.dat" using 1:5 axis x1y2 with lines title "$name" lw 6\n};
     # ## Plot relative to population ## #
-    if(0){
+    if($plot_deaths){
       if(!$pop{$country}){
         print "population of $country unknown\n";
       }else{
