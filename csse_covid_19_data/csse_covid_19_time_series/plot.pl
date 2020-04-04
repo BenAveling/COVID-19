@@ -434,7 +434,7 @@ foreach my $c (0..$#order_by_country){
     # cases per day
     if($plot_delta){
       # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
-      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 2\n};
+      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with impulses title "$name - new cases per day" lw 2\n};
       $country_plot="replot";
     }
     # deaths per day
