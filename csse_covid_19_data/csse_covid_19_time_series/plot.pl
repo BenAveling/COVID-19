@@ -79,8 +79,8 @@ sub init_palette()
 {
   open my $PALETTE, '>', 'palette.gp' or die "Can't write palette.gp: $!";
 print $PALETTE qq{
-set palette maxcolors 2
-# set palette maxcolors 7
+# set palette maxcolors 2
+set palette maxcolors 7
 set palette defined ( \\
    1 'red', \\
    2 'gold', \\
@@ -158,6 +158,8 @@ my %flags=(
   brazil=>[qw(green yellow blue)],
   saudi_arabia=>[qw(green)],
   diamond_princes=>[qw(red)],
+  new_zealand=>[qw(black white)],
+  mexico=>[qw(green white red)],
 );
 
 my %labels=(
@@ -238,20 +240,22 @@ my $plot_country=undef;
 # $plot_country="australia";
 # my $plot_country="us";
 
-my $plot_deaths=0;
-my $plot_delta=0;
+my $plot_cases=" cases";
+my $plot_deaths='';
+my $plot_delta='';
 
 foreach(@ARGV){
-  if(m/-d|delta/){
-    $plot_delta=1;
-  }elsif(m/-m|mort/){
-    print ">> plot deaths\n";
-    $plot_deaths=1;
+  if(m/-c|nocase/){
+    $plot_cases='';
+  }elsif(m/-d|delta/){
+    $plot_delta=" delta-cases";
+  }elsif(m/-m|mort|death/){
+    $plot_deaths=" deaths";
   }else{
-    print ">> plot deltas\n";
     $plot_country=$_;
   }
 }
+print "plotting",$plot_cases,$plot_deaths,$plot_delta,"\n";
 
 sub read_csv($){
   my $series=shift || die;
@@ -412,32 +416,44 @@ foreach my $c (0..$#order_by_country){
     print $EVERYONE $to_print,"\n"; 
   }
   my ($cc,$lc)=line_color($country,$c);
-  foreach my $country_plot ("plot", "replot"){
-    open my $COUNTRY, ">", "\L$country_plot-$country.gp";
+  foreach my $plot ("plot", "replot"){
+    open my $COUNTRY, ">", "\L$plot-$country.gp";
+    my $country_plot=$plot;
     print $COUNTRY init_gp();
     print $COUNTRY qq{unset label\nset key inside\n};
     # my $to_print=plot_country($country_plot,$country,$title);
-    my $to_print=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
+    my $to_print="";
+    if($plot_cases){
+      $to_print.=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
+      $country_plot="replot";
+    }
     ### plot deaths ###
     my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
     $to_print.=qq{replot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n} if $plot_deaths;
     # ## Delta ## #
     # cases per day
     if($plot_delta){
-      $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
+      # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
+      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 2\n};
+      $country_plot="replot";
     }
     # deaths per day
     # $to_print=qq{$country_plot "$country.dat" using 1:5 axis x1y2 with lines title "$name" lw 6\n};
     # ## Plot relative to population ## #
-    if($plot_deaths){
+    if(0){
       if(!$pop{$country}){
         print "population of $country unknown\n";
       }else{
-        $to_print=qq{
-        set logscale y2 10
-        set y2range [0.0000001:100]
-        set format y2 "%0.6f%%"
-        plot "$country.dat" using 1:(\$2/$pop{$country}*100)$cc axis x1y2 with lines $title lw 6 $lc};
+        my $pop=$pop{$country};
+        $to_print.=qq{
+        #set logscale y2 10
+        #set y2range [0.0000001:100]
+        #set format y2 "%0.6f%%"
+        #plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
+        };
+        if($plot_deaths){
+          $to_print.=qq{$country_plot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc\n};
+        }
       }
     }
     print $COUNTRY $to_print;
