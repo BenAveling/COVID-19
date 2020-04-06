@@ -35,6 +35,10 @@ use Data::Dumper;
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
 my $max_lines=10;
 
+my $plot_cases;
+my $plot_deaths;
+my $plot_delta;
+
 # ####
 # SUBS
 # ####
@@ -96,9 +100,10 @@ set palette defined ( \\
 
 init_palette();
 
-sub init_gp()
+sub init_gp($)
 {
-  return qq{
+  my $country=shift;
+  my $retval=qq{
   # set title "New confirmed cases/deaths per day"
   # set title "Confirmed cases"
     set xdata time
@@ -120,8 +125,6 @@ sub init_gp()
     #set y2range [0:*]
     # set format y2 "%0.6f%%"
     set format y2 "%6.0f"
-    # set ytics
-    unset ytics
     # set y2tics mirror
     set y2tics nomirror
     set grid xtics
@@ -132,6 +135,17 @@ sub init_gp()
     set term wxt background rgb "gray"
     load "palette.gp"
   };
+  if($country eq 'china'){
+    $retval=~s/set xrange.*/set xrange [*:*]/ or die;
+  }
+  if($country eq 'everyone'){
+    $retval.="set key outside\n";
+  }else{
+    $retval.=qq{unset label\nset key inside\n};
+  }
+  $retval.= $plot_delta ? "set ytics\n" : "unset ytics\n";
+  $retval=~s/^\s*//;
+  return $retval;
 }
 
 my @cols=(1..4,5,6..8);
@@ -240,9 +254,9 @@ my $plot_country=undef;
 # $plot_country="australia";
 # my $plot_country="us";
 
-my $plot_cases=" cases";
-my $plot_deaths='';
-my $plot_delta='';
+$plot_cases=" cases";
+$plot_deaths='';
+$plot_delta='';
 
 foreach(@ARGV){
   if(m/-c|nocase/){
@@ -349,7 +363,7 @@ my @order_by_country = reverse sort {cmp_region($a,$b)} keys %country_counts;
 
 open my $EVERYONE, ">", "plot-everyone.gp";
 # my $plot="plot";
-print $EVERYONE init_gp(),"set key outside\n";
+print $EVERYONE init_gp('everyone');
 
 #foreach my $country (sort keys %country_counts){
 sub line_color($$)
@@ -381,7 +395,7 @@ foreach my $c (0..$#order_by_country){
   my $deaths = $tc->{Deaths};
   # my $country_total = "$confirmed confirmed cases, $deaths deaths";
   my $country_total = "$confirmed cases";
-  my $title = qq{title "$name - $confirmed cases"};
+  my $title = qq{title "$name - $confirmed cases (rhs)"};
   if($c<$max_lines && $country ne "grand_total")
   # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
   # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
@@ -419,8 +433,7 @@ foreach my $c (0..$#order_by_country){
   foreach my $plot ("plot", "replot"){
     open my $COUNTRY, ">", "\L$plot-$country.gp";
     my $country_plot=$plot;
-    print $COUNTRY init_gp();
-    print $COUNTRY qq{unset label\nset key inside\n};
+    print $COUNTRY init_gp($country);
     # my $to_print=plot_country($country_plot,$country,$title);
     my $to_print="";
     if($plot_cases){
@@ -434,7 +447,7 @@ foreach my $c (0..$#order_by_country){
     # cases per day
     if($plot_delta){
       # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
-      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with impulses title "$name - new cases per day" lw 2\n};
+      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y1 with impulses title "$name - new cases per day (lhs)" lw 2\n};
       $country_plot="replot";
     }
     # deaths per day
