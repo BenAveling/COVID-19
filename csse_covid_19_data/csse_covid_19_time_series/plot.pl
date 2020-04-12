@@ -163,6 +163,7 @@ my %flags=(
   spain=>[qw(red yellow yellow red)],
   germany=>[qw(black yellow red)],
   us=>[qw(red red white white blue blue)],
+  canada=>[qw(red white)],
   france=>[qw(blue white red)],
   south_korea=>[qw(red blue white black)],
   switzerland=>[qw(red white)],
@@ -171,7 +172,7 @@ my %flags=(
   finland=>[qw(blue white)],
   singapore=>[qw(red white)],
   taiwan=>[qw(red red blue)],
-  australia=>[qw(green yellow)],
+  australia=>[qw(green gold)],
   # australia=>[qw(red white blue)],
   brazil=>[qw(green yellow blue)],
   saudi_arabia=>[qw(green)],
@@ -484,18 +485,19 @@ foreach my $c (0..$#order_by_country){
     }
     # ## Plot relative to population ## #
     if(0){
+      my $country_plot=$plot;
       if(!$pop{$country}){
         print "population of $country unknown\n";
       }else{
         my $pop=$pop{$country};
-        $to_print.=qq{
-        #set logscale y2 10
-        #set y2range [0.0000001:100]
-        #set format y2 "%0.6f%%"
-        #plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
+        $to_print=qq{
+        set logscale y2 10
+        set y2range [0.0000001:100]
+        set format y2 "%0.6f%%"
+        $country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
         };
         if($plot_deaths){
-          $to_print.=qq{$country_plot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc\n};
+          $to_print.=qq{replot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc\n};
         }
       }
     }
