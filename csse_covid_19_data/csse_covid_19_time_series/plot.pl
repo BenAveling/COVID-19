@@ -33,11 +33,13 @@ use Data::Dumper;
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
-my $max_lines=10;
+my $max_lines=20;
 
 my $plot_cases;
 my $plot_deaths;
 my $plot_delta;
+my $plot_delta_only;
+my $plot_us;
 
 # ####
 # SUBS
@@ -107,17 +109,18 @@ sub init_gp($)
   # set title "New confirmed cases/deaths per day"
   # set title "Confirmed cases"
     set xdata time
+    set xtics format "%d/%m"
     set key left
     set timefmt "%Y-%m-%d"
-    # set logscale y2 10
+    set logscale y2 10
     # set logscale y2 2
-    unset logscale
+    # unset logscale
     set xrange ["2020-02-20":"2020-04-20"]
     # set xrange ["2020-02-20":*]
     # set xrange [*:*]
     #suitable for logscale, whole of population
-    set yrange [0:*]
-    set y2range [0:*]
+    set yrange [1:*]
+    set y2range [1:*]
     #set y2range [.00001:100]
     #suitable for logscale, actual counts
     set y2range [1:*]
@@ -152,19 +155,20 @@ my @cols=(1..4,5,6..8);
 
 my %flags=(
   china=>[qw(red)],
-  sweden=>[qw(blue yellow)],
+  sweden=>[qw(yellow blue)],
+  norway=>[qw(red white blue)],
   japan=>[qw(red)],
   italy=>[qw(green white red)],
   iran=>[qw(red red white white green green)],
   spain=>[qw(red yellow yellow red)],
   germany=>[qw(black yellow red)],
   us=>[qw(red red white white blue blue)],
-  # us=>[qw(red white blue)],
-  # us=>[qw(blue)],
   france=>[qw(blue white red)],
-  south_korea=>[qw(red blue)],
+  south_korea=>[qw(red blue white black)],
   switzerland=>[qw(red white)],
   united_kingdom=>[qw(red blue white)],
+  ireland=>[qw(green)],
+  finland=>[qw(blue white)],
   singapore=>[qw(red white)],
   taiwan=>[qw(red red blue)],
   australia=>[qw(green yellow)],
@@ -174,6 +178,8 @@ my %flags=(
   diamond_princes=>[qw(red)],
   new_zealand=>[qw(black white)],
   mexico=>[qw(green white red)],
+  turkey=>[qw(red white red)],
+  hungary=>[qw(red white green)],
 );
 
 my %labels=(
@@ -250,54 +256,72 @@ my %country_counts;
 my %total;
 my %names;
 
-my $plot_country=undef;
+my $plot_country="";
 # $plot_country="australia";
 # my $plot_country="us";
 
 $plot_cases=" cases";
 $plot_deaths='';
 $plot_delta='';
+$plot_delta_only='';
+$plot_us=0;
 
 foreach(@ARGV){
   if(m/-c|nocase/){
     $plot_cases='';
   }elsif(m/-d|delta/){
     $plot_delta=" delta-cases";
+    $plot_delta_only=" (only)" if m/only/;
   }elsif(m/-m|mort|death/){
     $plot_deaths=" deaths";
   }else{
     $plot_country=$_;
+    if(m/^us/){
+      $plot_us=1;
+    }
   }
 }
-print "plotting",$plot_cases,$plot_deaths,$plot_delta,"\n";
+print "plotting $plot_country:",$plot_cases,$plot_deaths,$plot_delta,"\n";
+
+sub strip_commas($)
+{
+  my $str=shift;
+  $str=~s/,//g;
+  return $str;
+}
 
 sub read_csv($){
   my $series=shift || die;
-  my $csv_file="time_series_covid19_\l$series\_global.csv";
+  my $plot_region=$plot_us?'US':'global';
+  my $csv_file="time_series_covid19_\l$series\_$plot_region.csv";
   open my $IN, $csv_file or die;
   my $headings=<$IN>;
   my @headings=map {fix_date($_)} split /,/, $headings;
   read_pop();
+  my $name_column=$plot_country ? 0 : 1;
+  my $first_column=5;
+  if($plot_us){
+    $name_column = 6;
+    $first_column = 13;
+  }
   while(my $line=<$IN>){
     $line=~s/\r?\n//;
-    $line=~s/"(.*), (.*)"/$2 $1/;
+    $line=~s/"([^",]*), ([^",]*)"/$2 $1/g;
+    $line=~s/"([^"]*,.*?)"/strip_commas($1)/ge;
     my @columns=split /,/, $line;
-    my $name;
     if($plot_country){
       next unless $columns[1] =~ /$plot_country/i;
-      # next if $columns[0] =~ /diamond.princess/i;
-      $name = $columns[0]; # 0 = state
-      print "'$plot_country' > '$columns[1]' > '$name'\n";
-    }else{
-      $name = $columns[1]; # 1 = country
     }
+    # next if $columns[0] =~ /diamond.princess/i;
+    my $name = $columns[$name_column];
+    print "'$plot_country' > '$columns[1]' > '$name'\n" if $plot_country;
     my $region = lc($name);
     $region=~s/ /_/g;
     $region=~s/\*//g;
     $name=~s/\*//g;
     $names{$region} = $name;
     # next unless $country =~ /Australia/;
-    for my $i (5..$#columns){
+    for my $i ($first_column..$#columns){
       my $count = $columns[$i]||0;
       $country_counts{$region}{$headings[$i]}{$series}+=$count;
       $country_counts{grand_total}{$headings[$i]}{$series}+=$count;
@@ -305,7 +329,7 @@ sub read_csv($){
     $total{$region}{$series} += $columns[$#columns];
     $total{grand_total}{$series} += $columns[$#columns];
   }
-    $names{grand_total} = "Total";
+  $names{grand_total} = "Total";
 }
 
 foreach my $series (qw(Confirmed Deaths)){
@@ -335,7 +359,7 @@ foreach my $country ( keys %country_counts ){
   # my $prev_confirmed;
   foreach my $date ( sort keys %{$values} ){
     my $value=$values->{$date};
-    my $confirmed=$value->{Confirmed};
+    my $confirmed=$value->{Confirmed} || 0;
     my $deaths=$value->{Deaths};
     # my $prev = @last>6 ? $last[$#last-6] : 0;
     # my $prev = @last ? $last[$#last] : 0;
@@ -436,22 +460,28 @@ foreach my $c (0..$#order_by_country){
     print $COUNTRY init_gp($country);
     # my $to_print=plot_country($country_plot,$country,$title);
     my $to_print="";
-    if($plot_cases){
+    if($plot_cases && !$plot_delta_only){
       $to_print.=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
+      $country_plot="replot";
+    }
+    # ## Delta ## #
+    # cases per day
+    if(($plot_cases||!$plot_deaths) && $plot_delta){
+      $to_print.=qq{$country_plot "$country.dat" using 1:4$cc axis x1y1 with lines title "$name - new cases per day (lhs)" $lc lw 2\n};
       $country_plot="replot";
     }
     ### plot deaths ###
     my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
-    $to_print.=qq{replot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n} if $plot_deaths;
-    # ## Delta ## #
-    # cases per day
-    if($plot_delta){
-      # $to_print=qq{$country_plot "$country.dat" using 1:4 axis x1y2 with boxes title "$name - new cases per day" lw 6\n};
-      $to_print.=qq{$country_plot "$country.dat" using 1:4 axis x1y1 with impulses title "$name - new cases per day (lhs)" lw 2\n};
-      $country_plot="replot";
+    if($plot_deaths){
+      if(!$plot_delta_only){
+        $to_print.=qq{$country_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
+        $country_plot="replot";
+      }
+      if($plot_delta){
+        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis x1y1 with lines title "deaths per day (lhs)" $lc dt 3 lw 2\n};
+        $country_plot="replot";
+      }
     }
-    # deaths per day
-    # $to_print=qq{$country_plot "$country.dat" using 1:5 axis x1y2 with lines title "$name" lw 6\n};
     # ## Plot relative to population ## #
     if(0){
       if(!$pop{$country}){
