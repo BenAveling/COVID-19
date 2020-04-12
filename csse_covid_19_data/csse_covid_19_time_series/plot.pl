@@ -40,6 +40,7 @@ my $plot_deaths;
 my $plot_delta;
 my $plot_delta_only;
 my $plot_us;
+my $plot_by_pop;
 
 # ####
 # SUBS
@@ -266,6 +267,7 @@ $plot_deaths='';
 $plot_delta='';
 $plot_delta_only='';
 $plot_us=0;
+$plot_by_pop=0;
 
 foreach(@ARGV){
   if(m/-c|nocase/){
@@ -275,6 +277,8 @@ foreach(@ARGV){
     $plot_delta_only=" (only)" if m/only/;
   }elsif(m/-m|mort|death/){
     $plot_deaths=" deaths";
+  }elsif(m/pop/){
+    $plot_by_pop=" by population";
   }else{
     $plot_country=$_;
     if(m/^us/){
@@ -282,7 +286,10 @@ foreach(@ARGV){
     }
   }
 }
-print "plotting $plot_country:",$plot_cases,$plot_deaths,$plot_delta,"\n";
+if($plot_by_pop){
+  $plot_cases=$plot_deaths=$plot_delta="";
+}
+print "plotting $plot_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop,"\n";
 
 sub strip_commas($)
 {
@@ -484,20 +491,21 @@ foreach my $c (0..$#order_by_country){
       }
     }
     # ## Plot relative to population ## #
-    if(0){
+    if($plot_by_pop){
       my $country_plot=$plot;
       if(!$pop{$country}){
         print "population of $country unknown\n";
       }else{
         my $pop=$pop{$country};
         $to_print=qq{
-        set logscale y2 10
-        set y2range [0.0000001:100]
-        set format y2 "%0.6f%%"
-        $country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
+          set logscale y2 10
+          set y2range [0.0000001:100]
+          set format y2 "%0.6f%%"
+          $country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
         };
+        $country_plot="replot";
         if($plot_deaths){
-          $to_print.=qq{replot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc\n};
+          $to_print.=qq{$country_plot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title dt 3 lw 6 $lc\n};
         }
       }
     }
