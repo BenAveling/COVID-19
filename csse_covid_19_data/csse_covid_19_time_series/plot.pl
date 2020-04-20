@@ -79,7 +79,8 @@ my %palette=(
   yellow=>4,
   green=>5,
   black=>6,
-  white=>7,
+  orange=>7,
+  white=>8,
 );
 
 sub init_palette()
@@ -87,7 +88,7 @@ sub init_palette()
   open my $PALETTE, '>', 'palette.gp' or die "Can't write palette.gp: $!";
 print $PALETTE qq{
 # set palette maxcolors 2
-set palette maxcolors 7
+set palette maxcolors 8
 set palette defined ( \\
    1 'red', \\
    2 'gold', \\
@@ -95,7 +96,8 @@ set palette defined ( \\
    4 'yellow', \\
    5 'green', \\
    6 'black', \\
-   7 'white', \\
+   7 'orange', \\
+   8 'white', \\
 
   unset label
 };
@@ -157,12 +159,15 @@ my @cols=(1..4,5,6..8);
 my %flags=(
   china=>[qw(red)],
   sweden=>[qw(yellow blue)],
+  denmark=>[qw(red white red)],
   norway=>[qw(red white blue)],
   japan=>[qw(red)],
   italy=>[qw(green white red)],
+  greece=>[qw(blue white)],
   iran=>[qw(red red white white green green)],
   spain=>[qw(red yellow yellow red)],
   germany=>[qw(black yellow red)],
+  netherlands=>[qw(orange white blue)],
   us=>[qw(red red white white blue blue)],
   canada=>[qw(red white)],
   france=>[qw(blue white red)],
@@ -182,6 +187,7 @@ my %flags=(
   mexico=>[qw(green white red)],
   turkey=>[qw(red white red)],
   hungary=>[qw(red white green)],
+  new_york=>[qw(blue white orange)],
 );
 
 my %labels=(
@@ -501,7 +507,16 @@ foreach my $c (0..$#order_by_country){
         $country_plot="replot";
       }
       if($plot_delta){
-        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis x1y1 with lines title "deaths per day (lhs)" $lc dt 3 lw 2\n};
+        my $dt="dt 3";
+        my $axis="x1y1";
+        my $lrhs="lhs";
+        if($plot_delta_only){
+          $dt="" if ! $plot_cases;
+          $axis="x1y2";
+          $lrhs="rhs";
+          $to_print.=qq{unset logscale\n};
+        }
+        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis $axis with lines title "deaths per day ($lrhs)" $lc $dt lw 2\n};
         $country_plot="replot";
       }
     }
