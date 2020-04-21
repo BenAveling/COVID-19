@@ -115,21 +115,19 @@ sub init_gp($)
     set xtics format "%d/%m"
     set key left
     set timefmt "%Y-%m-%d"
-    set logscale y2 10
+    # set logscale y2 10
     # set logscale y2 2
     # unset logscale
     set xrange ["2020-02-20":"2020-04-20"]
     # set xrange ["2020-02-20":*]
     # set xrange [*:*]
     #suitable for logscale, whole of population
-    set yrange [1:*]
-    set y2range [1:*]
     #set y2range [.00001:100]
     #suitable for logscale, actual counts
+    set yrange [1:*]
     set y2range [1:*]
     #suitable for linear
     #set y2range [0:*]
-    # set format y2 "%0.6f%%"
     set format y2 "%6.0f"
     # set y2tics mirror
     set y2tics nomirror
@@ -283,6 +281,7 @@ foreach(@ARGV){
     $plot_delta_only=" (only)" if m/only/;
   }elsif(m/-m|mort|death/){
     $plot_deaths=" deaths";
+    $plot_cases='' if m/only/;
   }elsif(m/pop/){
     $plot_by_pop=" by population";
   }else{
@@ -458,7 +457,7 @@ foreach my $c (0..$#order_by_country){
     ### plot deaths ###
     # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n} if $plot_deaths;
     ### Plot relative to population ###
-    if(0){
+    if($plot_by_pop){
       if(!$pop{$country}){
         print "population of $country unknown\n";
       }else{
@@ -516,7 +515,7 @@ foreach my $c (0..$#order_by_country){
           $lrhs="rhs";
           $to_print.=qq{unset logscale\n};
         }
-        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis $axis with lines title "deaths per day ($lrhs)" $lc $dt lw 2\n};
+        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis $axis with lines title "$name deaths per day ($lrhs)" $lc $dt lw 2\n};
         $country_plot="replot";
       }
     }
@@ -541,6 +540,9 @@ foreach my $c (0..$#order_by_country){
         #}
     }
     print $COUNTRY $to_print;
+    if($plot eq "plot" && -e "palette-$country.gp"){
+      print $COUNTRY qq{load "palette-$country.gp"\n};
+    }
   }
 }
 
