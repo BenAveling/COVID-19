@@ -1,0 +1,2 @@
+perl .\plot.pl %*
+gnuplot
