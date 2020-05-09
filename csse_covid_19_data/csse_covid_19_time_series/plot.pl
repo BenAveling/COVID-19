@@ -79,7 +79,8 @@ my %palette=(
   yellow=>4,
   green=>5,
   black=>6,
-  white=>7,
+  orange=>7,
+  white=>8,
 );
 
 sub init_palette()
@@ -87,7 +88,7 @@ sub init_palette()
   open my $PALETTE, '>', 'palette.gp' or die "Can't write palette.gp: $!";
 print $PALETTE qq{
 # set palette maxcolors 2
-set palette maxcolors 7
+set palette maxcolors 8
 set palette defined ( \\
    1 'red', \\
    2 'gold', \\
@@ -95,7 +96,8 @@ set palette defined ( \\
    4 'yellow', \\
    5 'green', \\
    6 'black', \\
-   7 'white', \\
+   7 'orange', \\
+   8 'white', \\
 
   unset label
 };
@@ -157,13 +159,17 @@ my @cols=(1..4,5,6..8);
 my %flags=(
   china=>[qw(red)],
   sweden=>[qw(yellow blue)],
+  denmark=>[qw(red white red)],
   norway=>[qw(red white blue)],
   japan=>[qw(red)],
   italy=>[qw(green white red)],
+  greece=>[qw(blue white)],
   iran=>[qw(red red white white green green)],
   spain=>[qw(red yellow yellow red)],
   germany=>[qw(black yellow red)],
+  netherlands=>[qw(orange white blue)],
   us=>[qw(red red white white blue blue)],
+  canada=>[qw(red white)],
   france=>[qw(blue white red)],
   south_korea=>[qw(red blue white black)],
   switzerland=>[qw(red white)],
@@ -172,7 +178,7 @@ my %flags=(
   finland=>[qw(blue white)],
   singapore=>[qw(red white)],
   taiwan=>[qw(red red blue)],
-  australia=>[qw(green yellow)],
+  australia=>[qw(green yellow)], # yellow or gold? 
   # australia=>[qw(red white blue)],
   brazil=>[qw(green yellow blue)],
   saudi_arabia=>[qw(green)],
@@ -181,6 +187,7 @@ my %flags=(
   mexico=>[qw(green white red)],
   turkey=>[qw(red white red)],
   hungary=>[qw(red white green)],
+  new_york=>[qw(blue white orange)],
 );
 
 my %labels=(
@@ -265,8 +272,8 @@ $plot_cases=" cases";
 $plot_deaths='';
 $plot_delta='';
 $plot_delta_only='';
-$plot_us=0;
-$plot_by_pop=0;
+$plot_us='';
+$plot_by_pop='';
 
 foreach(@ARGV){
   if(m/-c|nocase/){
@@ -286,7 +293,7 @@ foreach(@ARGV){
   }
 }
 if($plot_by_pop){
-  $plot_cases=$plot_deaths=$plot_delta="";
+  # $plot_cases=$plot_deaths=$plot_delta="";
 }
 print "plotting $plot_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop,"\n";
 
@@ -467,8 +474,22 @@ foreach my $c (0..$#order_by_country){
     print $COUNTRY init_gp($country);
     # my $to_print=plot_country($country_plot,$country,$title);
     my $to_print="";
+    my $pop;
+    if($plot_by_pop){
+      $pop=$pop{$country};
+      if(!$pop){
+        print "population of $country unknown\n";
+        next;
+      }
+      $to_print.=qq{
+        set logscale y2 10
+        set y2range [0.0000001:100]
+        set format y2 "%0.6f%%"
+      };
+    }
     if($plot_cases && !$plot_delta_only){
-      $to_print.=qq{$country_plot "$country.dat" using 1:2$cc axis x1y2 with lines $title $lc lw 6\n};
+      my $cases_by_pop=$plot_by_pop ? "(\$2/$pop*100)" : '2' ;
+      $to_print.=qq{$country_plot "$country.dat" using 1:$cases_by_pop$cc axis x1y2 with lines $title $lc lw 6\n};
       $country_plot="replot";
     }
     # ## Delta ## #
@@ -481,32 +502,43 @@ foreach my $c (0..$#order_by_country){
     my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
     if($plot_deaths){
       if(!$plot_delta_only){
-        $to_print.=qq{$country_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
+        my $deaths_by_pop=$plot_by_pop ? "(\$3/$pop*100)" : '3' ;
+        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_by_pop$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
         $country_plot="replot";
       }
       if($plot_delta){
-        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis x1y1 with lines title "deaths per day (lhs)" $lc dt 3 lw 2\n};
+        my $dt="dt 3";
+        my $axis="x1y1";
+        my $lrhs="lhs";
+        if($plot_delta_only){
+          $dt="" if ! $plot_cases;
+          $axis="x1y2";
+          $lrhs="rhs";
+          $to_print.=qq{unset logscale\n};
+        }
+        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis $axis with lines title "deaths per day ($lrhs)" $lc $dt lw 2\n};
         $country_plot="replot";
       }
     }
     # ## Plot relative to population ## #
     if($plot_by_pop){
-      if(!$pop{$country}){
-        print "population of $country unknown\n";
-      }else{
-        my $pop=$pop{$country};
-        $country_plot=$plot;
+      #my $country_plot=$plot;
+      #if(!$pop{$country}){
+      #print "population of $country unknown\n";
+      #}else{
+      #my $pop=$pop{$country};
         $to_print.=qq{
           set logscale y2 10
           set y2range [0.0000001:100]
           set format y2 "%0.6f%%"
-          $country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
+          replot
         };
-        $country_plot="replot";
-        if($plot_deaths){
-          $to_print.=qq{$country_plot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title dt 3 lw 6 $lc\n};
-        }
-      }
+          #$country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
+        #$country_plot="replot";
+        #if($plot_deaths){
+        #$to_print.=qq{$country_plot "$country.dat" using 1:(\$3/$pop*100)$cc axis x1y2 with lines $title dt 3 lw 6 $lc\n};
+        #}
+        #}
     }
     print $COUNTRY $to_print;
   }
