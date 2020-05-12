@@ -119,7 +119,7 @@ sub init_gp($)
     # set logscale y2 10
     # set logscale y2 2
     # unset logscale
-    set xrange ["2020-03-01":"2020-05-15"]
+    set xrange ["2020-02-20":"2020-05-20"]
     # set xrange ["2020-02-20":*]
     # set xrange [*:*]
     #suitable for logscale, whole of population
