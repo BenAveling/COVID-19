@@ -100,6 +100,7 @@ set palette defined ( \\
    8 'white', \\
 
   unset label
+  # replot
 };
 }
 
@@ -118,7 +119,7 @@ sub init_gp($)
     # set logscale y2 10
     # set logscale y2 2
     # unset logscale
-    set xrange ["2020-03-01":"2020-05-01"]
+    set xrange ["2020-03-01":"2020-05-15"]
     # set xrange ["2020-02-20":*]
     # set xrange [*:*]
     #suitable for logscale, whole of population
@@ -164,18 +165,22 @@ my %flags=(
   greece=>[qw(blue white)],
   iran=>[qw(red red white white green green)],
   spain=>[qw(red yellow yellow red)],
+  portugal=>[qw(red green)],
   germany=>[qw(black yellow red)],
   netherlands=>[qw(orange white blue)],
   us=>[qw(red red white white blue blue)],
+  us_ex_ny=>[qw(red white blue)],
   canada=>[qw(red white)],
   france=>[qw(blue white red)],
   south_korea=>[qw(red blue white black)],
   switzerland=>[qw(red white)],
   united_kingdom=>[qw(red blue white)],
-  ireland=>[qw(green)],
+  #ireland=>[qw(green)],
+  ireland=>[qw(green white orange)],
   finland=>[qw(blue white)],
   singapore=>[qw(red white)],
   taiwan=>[qw(red red blue)],
+  thailand=>[qw(red white blue blue white red)],
   australia=>[qw(green yellow)], # yellow or gold? 
   # australia=>[qw(red white blue)],
   brazil=>[qw(green yellow blue)],
@@ -264,6 +269,8 @@ my %country_counts;
 my %total;
 my %names;
 
+$names{us_ex_ny} = "US ex NY";
+
 my $plot_country="";
 # $plot_country="australia";
 # my $plot_country="us";
@@ -286,10 +293,13 @@ foreach(@ARGV){
     $plot_cases='' if m/only/;
   }elsif(m/pop/){
     $plot_by_pop=" by population";
+  }elsif(m/pull/){
+    system("git pull");
   }else{
     $plot_country=$_;
     if(m/^us/){
       $plot_us=1;
+      $flags{"grand_total"} = $flags{"us"};
     }
   }
 }
@@ -313,10 +323,10 @@ sub read_csv($)
   open my $IN, $csv_file or die;
   my $headings=<$IN>;
   my @headings=map {fix_date($_)} split /,/, $headings;
-  my $name_column=$plot_country ? 0 : 1;
+  my $name_column=$plot_country ? 0 : 1; # are we plotting country or region?
   my $first_column=5;
   if($plot_us){
-    $name_column = 6;
+    $name_column = 6; # us is different again
     $first_column = 13;
   }
   while(my $line=<$IN>){
@@ -329,7 +339,6 @@ sub read_csv($)
     }
     # next if $columns[0] =~ /diamond.princess/i;
     my $name = $columns[$name_column];
-    print "'$plot_country' > '$columns[1]' > '$name'\n" if $plot_country;
     my $region = lc($name);
     $region=~s/ /_/g;
     $region=~s/\*//g;
@@ -340,9 +349,15 @@ sub read_csv($)
       my $count = $columns[$i]||0;
       $country_counts{$region}{$headings[$i]}{$series}+=$count;
       $country_counts{grand_total}{$headings[$i]}{$series}+=$count;
+      if($plot_us && $region ne "new_york"){
+        $country_counts{"us_ex_ny"}{$headings[$i]}{$series}+=$count;
+      }
     }
     $total{$region}{$series} += $columns[$#columns];
     $total{grand_total}{$series} += $columns[$#columns];
+    if($plot_us && $region ne "new_york"){
+      $total{"us_ex_ny"}{$series} += $columns[$#columns];
+    }
   }
   $names{grand_total} = "Total";
 }
@@ -443,46 +458,30 @@ foreach my $c (0..$#order_by_country){
   my $tc = $total{$country};
   my $confirmed = $tc->{Confirmed};
   my $deaths = $tc->{Deaths};
-  # my $country_total = "$confirmed confirmed cases, $deaths deaths";
   my $country_total = "$confirmed cases";
   my $title = qq{title "$name - $confirmed cases (rhs)"};
-  if($c<$max_lines && $country ne "grand_total")
-  # if($country=~m/^(us|italy|south_korea|china|japan|taiwan|singapore|australia)$/)
-  # if($country=~m/^(us|italy|south_korea|china|taiwan|singapore|australia|united_kingdom)$/)
-  # if($country=~m/^(us|italy|germany|france|spain|south_korea|china|united_kingdom)$/)
-  #if($country=~m/^(us|italy|south_korea|china|united_kingdom|australia)$/)
-  #if($country=~m/^(china|north_korea|iran|italy|spain|us)$/)
-  # if($plot_country || $country=~m/^(italy|us)$/)
-  {
-    print "$country: $deaths deaths, $confirmed cases";
-    print ", population $pop" if $pop;
-    printf ", CFR %0.3f%%",$deaths/$confirmed*100;
-    printf ", PFR %0.3f%%",$deaths/$pop*100 if $pop;
-    print "\n";
-    my ($cc,$lc)=line_color($country,$c);
-    if($labels{$country}){
-      my $x=$labels{$country}->[0];
-      my $y=$labels{$country}->[1];
-      my $r=$labels{$country}->[2]||0;
-      #print $EVERYONE qq{set label "$name" at first "$x", second $y rotate by $r\n};
-    }
-    ### Plot number of cases ###
-    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
-    # -- case v deaths --
-    # $to_print=qq{unset xdata;$everyone_plot "$country.dat" using 2:3$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
-    $everyone_plot="replot";
-    ### plot deaths ###
-    # $to_print.=qq{$everyone_plot "$country.dat" using 1:3$cc axis x1y2 with lines title "$name $total->{Deaths} confirmed deaths" lw 6 $lc\n} if $plot_deaths;
-    ### Plot relative to population ###
-    if($plot_by_pop){
-      if(!$pop{$country}){
-        # print "population of $country unknown\n";
-      }else{
-        $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$cc axis x1y2 with lines $title lw 6 $lc};
-      }
-    }
-    print $EVERYONE $to_print,"\n"; 
-  }
+
+#  if($c<$max_lines && $country ne "grand_total")
+#  {
+#    print "$country: $deaths deaths, $confirmed cases";
+#    print ", population $pop" if $pop;
+#    printf ", CFR %0.3f%%",$deaths/$confirmed*100;
+#    printf ", PFR %0.3f%%",$deaths/$pop*100 if $pop;
+#    print "\n";
+#    my ($cc,$lc)=line_color($country,$c);
+#    # if($labels{$country}){ my $x=$labels{$country}->[0]; my $y=$labels{$country}->[1]; my $r=$labels{$country}->[2]||0; }
+#    my $to_print=qq{$everyone_plot "$country.dat" using 1:2$cc axis x1y2 with lines title "$name $country_total" lw 6 $lc\n};
+#    $everyone_plot="replot";
+#    if($plot_by_pop){
+#      if(!$pop{$country}){
+#        # print "population of $country unknown\n";
+#      }else{
+#        $to_print=qq{$everyone_plot "$country.dat" using 1:(\$2/$pop{$country}*100)$cc axis x1y2 with lines $title lw 6 $lc};
+#      }
+#    }
+#    print $EVERYONE $to_print,"\n"; 
+#  }
+
   my ($cc,$lc)=line_color($country,$c);
   foreach my $plot ("plot", "replot"){
     open my $COUNTRY, ">", "\L$plot-$country.gp";
@@ -518,21 +517,22 @@ foreach my $c (0..$#order_by_country){
     my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
     if($plot_deaths){
       if(!$plot_delta_only){
-        my $deaths_by_pop=$plot_by_pop ? "(\$3/$pop*100)" : '3' ;
-        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_by_pop$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
+        my $deaths_col=$plot_by_pop ? "(\$3/$pop*1e6)" : '3' ;
+        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
         $country_plot="replot";
       }
       if($plot_delta){
         my $dt="dt 3";
         my $axis="x1y1";
-        my $lrhs="lhs";
+        my $lhrhs="lhs";
         if($plot_delta_only){
           $dt="" if ! $plot_cases;
           $axis="x1y2";
-          $lrhs="rhs";
+          $lhrhs="rhs";
           $to_print.=qq{#unset logscale\n};
         }
-        $to_print.=qq{$country_plot "$country.dat" using 1:5$cc axis $axis with lines title "$name deaths per day ($lrhs)" $lc $dt lw 2\n};
+        my $deaths_col=$plot_by_pop ? "(\$5/$pop*1e6)" : '3' ;
+        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis $axis with lines title "$name deaths per day ($lhrhs)" $lc $dt lw 2\n};
         $country_plot="replot";
       }
     }
@@ -545,8 +545,9 @@ foreach my $c (0..$#order_by_country){
       #my $pop=$pop{$country};
         $to_print.=qq{
           set logscale y2 10
-          set y2range [0.0000001:100]
-          set format y2 "%0.6f%%"
+          set y2range [1:]
+          # set format y2 "%0f%%"
+          set format y2 "%.0f/M"
           replot
         };
           #$country_plot "$country.dat" using 1:(\$2/$pop*100)$cc axis x1y2 with lines $title lw 6 $lc
@@ -557,8 +558,20 @@ foreach my $c (0..$#order_by_country){
         #}
     }
     print $COUNTRY $to_print;
-    if($plot eq "plot" && -e "palette-$country.gp"){
+
+    last if($plot ne "plot");
+
+    if(-e "palette-$country.gp"){
       print $COUNTRY qq{load "palette-$country.gp"\n};
+    }
+
+    if($c<$max_lines && $country ne "grand_total")
+    {
+      if($everyone_plot ne "plot"){
+        $to_print =~ s/^ *plot/replot/;
+      }
+      print $EVERYONE $to_print,"\n"; 
+      $everyone_plot="replot";
     }
   }
 }
