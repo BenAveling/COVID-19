@@ -125,8 +125,8 @@ sub init_gp($)
     #suitable for logscale, whole of population
     #set y2range [.00001:100]
     #suitable for logscale, actual counts
-    set yrange [1:*]
-    set y2range [1:*]
+    #set yrange [1:*]
+    #set y2range [1:*]
     #suitable for linear
     #set y2range [0:*]
     set format y2 "%6.0f"
@@ -253,6 +253,41 @@ sub read_pop
 }
 
 read_pop();
+
+sub line_color($$)
+{
+  my $country=shift;
+  my $c=shift;
+  my $flag=$flags{$country};
+  my $lc=" lc ";
+  my $cc="";
+  if($flag){
+    $lc.="palette";
+    $cc=":6";
+  }else{
+    $lc.=$cols[$c%8];
+  }
+  return ($cc,$lc);
+}
+
+my $last_title_name;
+
+sub mk_title($$$)
+{
+  # eg {title "$name - $confirmed cases (rhs)"};
+  my $name=shift;
+  my $message=shift;
+  my $lhs_rhs=shift;
+  my $title=" title \"";
+  if($name ne $last_title_name){
+    $title.="$name ";
+    $last_title_name=$name;
+  }
+  $title.="- $message (";
+  $title.=$lhs_rhs =~ m/.hs/ ? $lhs_rhs : $lhs_rhs =~ /y2/ ? 'rhs' : 'lhs';
+  $title.=")\"";
+  return $title;
+}
 
 # ####
 # MAIN
@@ -429,23 +464,6 @@ open my $EVERYONE, ">", "plot-everyone.gp";
 # my $plot="plot";
 print $EVERYONE init_gp('everyone');
 
-#foreach my $country (sort keys %country_counts){
-sub line_color($$)
-{
-  my $country=shift;
-  my $c=shift;
-  my $flag=$flags{$country};
-  my $lc=" lc ";
-  my $cc="";
-  if($flag){
-    $lc.="palette";
-    $cc=":6";
-  }else{
-    $lc.=$cols[$c%8];
-  }
-  return ($cc,$lc);
-}
-
 my $everyone_plot="plot";
 foreach my $c (0..$#order_by_country){
   my $country = $order_by_country[$c];
@@ -459,7 +477,7 @@ foreach my $c (0..$#order_by_country){
   my $confirmed = $tc->{Confirmed};
   my $deaths = $tc->{Deaths};
   my $country_total = "$confirmed cases";
-  my $title = qq{title "$name - $confirmed cases (rhs)"};
+  # my $title = qq{title "$name - $confirmed cases (rhs)"};
 
 #  if($c<$max_lines && $country ne "grand_total")
 #  {
@@ -484,6 +502,7 @@ foreach my $c (0..$#order_by_country){
 
   my ($cc,$lc)=line_color($country,$c);
   foreach my $plot ("plot", "replot"){
+    $last_title_name="-";
     open my $COUNTRY, ">", "\L$plot-$country.gp";
     my $country_plot=$plot;
     print $COUNTRY init_gp($country);
@@ -496,21 +515,23 @@ foreach my $c (0..$#order_by_country){
         # print "population of $country unknown\n";
         next;
       }
-      $to_print.=qq{
-        set logscale y2 10
-        set y2range [0.0000001:100]
-        set format y2 "%0.6f%%"
-      };
+      #$to_print.=qq{
+        # set logscale y2 10
+        #set y2range [0.0000001:100]
+        #set format y2 "%0.6f%%"
+      #};
     }
     if($plot_cases && !$plot_delta_only){
       my $cases_by_pop=$plot_by_pop ? "(\$2/$pop*100)" : '2' ;
+      my $title = mk_title($name,"$confirmed confirmed cases","rhs");
       $to_print.=qq{$country_plot "$country.dat" using 1:$cases_by_pop$cc axis x1y2 with lines $title $lc lw 6\n};
       $country_plot="replot";
     }
     # ## Delta ## #
     # cases per day
     if(($plot_cases||!$plot_deaths) && $plot_delta){
-      $to_print.=qq{$country_plot "$country.dat" using 1:4$cc axis x1y1 with lines title "$name - new cases per day (lhs)" $lc lw 4\n};
+      my $title = mk_title($name,"new cases per day","lhs");
+      $to_print.=qq{$country_plot "$country.dat" using 1:4$cc axis x1y1 with lines $title $lc lw 4\n};
       $country_plot="replot";
     }
     ### plot deaths ###
@@ -518,7 +539,8 @@ foreach my $c (0..$#order_by_country){
     if($plot_deaths){
       if(!$plot_delta_only){
         my $deaths_col=$plot_by_pop ? "(\$3/$pop*1e6)" : '3' ;
-        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis x1y2 with lines title "$deaths deaths$ratio (rhs)" $lc dt 3 lw 6\n};
+        my $title=mk_title($name,"$deaths deaths$ratio","rhs");
+        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis x1y2 with lines $title $lc dt 3 lw 6\n};
         $country_plot="replot";
       }
       if($plot_delta){
@@ -531,12 +553,13 @@ foreach my $c (0..$#order_by_country){
           $lhrhs="rhs";
           $to_print.=qq{#unset logscale\n};
         }
-        my $deaths_col=$plot_by_pop ? "(\$5/$pop*1e6)" : '3' ;
-        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis $axis with lines title "$name deaths per day ($lhrhs)" $lc $dt lw 2\n};
+        my $deaths_col=$plot_by_pop ? "(\$5/$pop*1e6)" : '5' ;
+        my $title=mk_title($name,"deaths per day",$lhrhs);
+        $to_print.=qq{$country_plot "$country.dat" using 1:$deaths_col$cc axis $axis with lines $title $lc $dt lw 2\n};
         $country_plot="replot";
       }
     }
-    # ## Plot relative to population ## #
+    ### Plot per million ###
     if($plot_by_pop){
       #my $country_plot=$plot;
       #if(!$pop{$country}){
@@ -544,8 +567,11 @@ foreach my $c (0..$#order_by_country){
       #}else{
       #my $pop=$pop{$country};
         $to_print.=qq{
-          set logscale y2 10
-          set y2range [1:]
+          # set logscale y2 10
+        } if($plot eq "plot");
+        $to_print.=qq{
+          # set logscale y2 10
+          #set y2range [1:]
           # set format y2 "%0f%%"
           set format y2 "%.0f/M"
           replot
