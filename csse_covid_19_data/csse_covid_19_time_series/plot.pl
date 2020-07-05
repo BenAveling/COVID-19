@@ -33,7 +33,7 @@ use Data::Dumper;
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
-my $max_lines=40;
+my $max_lines=10;
 
 my $plot_cases;
 my $plot_deaths;
@@ -42,6 +42,7 @@ my $plot_delta;
 my $plot_delta_only;
 my $plot_us;
 my $plot_by_pop;
+my $min_pop;
 
 my %country_counts;
 my %total;
@@ -221,17 +222,7 @@ sub plot_country($$$@)
   my $country=shift;
   my $title=shift;
   my $other="@_";
-  return qq{$plot "$country.dat" using 1:2:5 axis x1y2 with lines $title lw 6 $other};
-  # return qq{$plot "$country.dat" using 1:2 axis x1y2 with lines $title lw 1 $other};
-  # return qq{$plot "$country.dat" using 1:2 axis x1y2 with linespoints $title $other};
-    # # total
-    # $plot "$country.dat" using 1:2:2 with labels notitle
-    # $plot "$country.dat" using 1:2 with lines title "$name - total"
-    # # per day
-    # $plot "$country.dat" using 1:3:3 with labels notitle
-    # replot "$country.dat" using 1:3 with lines title "$name - per day"
-    # plot "$country.dat" using 1:4:4 with labels notitle
-    # replot "$country.dat" using 1:4 with lines title "$name"
+  return qq{$plot "$country.dat" using 1:2:5 }.axis().qq{ with lines $title lw 6 $other};
 }
 
 my %pop;
@@ -282,20 +273,32 @@ sub line_color($$)
 
 my $last_title_name;
 
+my $lhs_rhs;
+
+sub lhs_rhs(){
+  return $lhs_rhs;
+}
+
+sub axis(){
+  return $lhs_rhs eq 'lhs' ? 'axis x1y1' : 'axis x1y2';
+ }
+
+sub flip_sides(){
+  $lhs_rhs = $lhs_rhs eq 'lhs' ? 'rhs' : 'lhs';
+}
+
 sub mk_title($$$)
 {
   # eg {title "$name - $confirmed cases (rhs)"};
   my $name=shift;
   my $message=shift;
-  my $lhs_rhs=shift;
+  my $ignore=shift;
   my $title=" title \"";
   if($name ne $last_title_name){
     $title.="$name ";
     $last_title_name=$name;
   }
-  $title.="- $message (";
-  $title.=$lhs_rhs =~ m/.hs/ ? $lhs_rhs : $lhs_rhs =~ /y2/ ? 'rhs' : 'lhs';
-  $title.=")\"";
+  $title.="- $message (".lhs_rhs().")\"";
   return $title;
 }
 
@@ -306,7 +309,7 @@ sub strip_commas($)
   return $str;
 }
 
-my $plot_country;
+my $by_country;
 
 sub read_csv($)
 {
@@ -316,7 +319,7 @@ sub read_csv($)
   open my $IN, $csv_file or die;
   my $headings=<$IN>;
   my @headings=map {fix_date($_)} split /,/, $headings;
-  my $name_column=$plot_country ? 0 : 1; # are we plotting country or region?
+  my $name_column=$by_country ? 0 : 1; # are we plotting country or region?
   my $first_column=5;
   if($plot_us){
     $name_column = 6; # us is different again
@@ -327,8 +330,8 @@ sub read_csv($)
     $line=~s/"([^",]*), ([^",]*)"/$2 $1/g;
     $line=~s/"([^"]*,.*?)"/strip_commas($1)/ge;
     my @columns=split /,/, $line;
-    if($plot_country){
-      next unless $columns[1] =~ /$plot_country/i;
+    if($by_country){
+      next unless $columns[1] =~ /$by_country/i;
     }
     # next if $columns[0] =~ /diamond.princess/i;
     my $name = $columns[$name_column];
@@ -396,24 +399,33 @@ sub cmp_region($$)
 
 my %units=(
   0 => "",
-  2 => " per hundred",
-  3 => " per thousand",
-  6 => " per million",
-  9 => " per billion",
+  -2 => " per hundred",
+  2 => " hundred",
+  -3 => " per thousand",
+  3 => " thousand",
+  -6 => " per million",
+  6 => " million",
+  -9 => " per billion",
+  9 => " billion",
 );
-sub sfprintf($)
+
+sub units($)
 {
   my $n=shift;
   my $e=0;
   return 0 if $n==0;
+  while($n>1){
+    $n/=10;
+    $e++;
+  }
   while($n<1){
     $n*=10;
-    $e++;
+    $e--;
   }
   while(!$units{$e}){
     $n*=10;
-    $e++;
-    die if $e>9;
+    $e--;
+    die if $e<-9;
   }
   my $unit=$units{$e};
   return sprintf(" (%.1f%s)",$n,$unit);
@@ -432,7 +444,7 @@ sub sfprintf($)
 
 $names{us_ex_ny} = "US ex NY";
 
-$plot_country="";
+$by_country="";
 $plot_cases=" cases";
 $plot_deaths='';
 $plot_deaths_only='';
@@ -440,6 +452,7 @@ $plot_delta='';
 $plot_delta_only='';
 $plot_us='';
 $plot_by_pop='';
+$min_pop=0;
 
 foreach(@ARGV){
   if(m/-c|nocase/){
@@ -455,10 +468,14 @@ foreach(@ARGV){
     }
   }elsif(m/pop/){
     $plot_by_pop=" by population";
+    if(m/pop(\d+)/){
+      $min_pop=$1;
+      $plot_by_pop.=" (min ".units($min_pop).")";
+    }
   }elsif(m/pull/){
     system("git pull");
   }else{
-    $plot_country=$_;
+    $by_country=$_;
     if(m/^us/){
       $plot_us=1;
       $flags{"grand_total"} = $flags{"us"};
@@ -468,7 +485,7 @@ foreach(@ARGV){
 if($plot_by_pop){
   # $plot_cases=$plot_deaths=$plot_delta="";
 }
-print "plotting $plot_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop,"\n";
+print "plotting $by_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop,"\n";
 
 foreach my $series (qw(Confirmed Deaths)){
   read_csv($series );
@@ -534,6 +551,7 @@ foreach my $c (0..$#order_by_country){
   my ($cc,$lc)=line_color($country,$c);
   foreach my $plot ("plot", "replot"){
     $last_title_name="-";
+    $lhs_rhs='lhs';
     open my $COUNTRY, ">", "\L$plot-$country.gp";
     my $country_plot=$plot;
     print $COUNTRY init_gp($country);
@@ -547,16 +565,18 @@ foreach my $c (0..$#order_by_country){
     if($plot_cases && !$plot_delta_only){
       my $cases_by_pop=$plot_by_pop ? "(\$2$by_pop)" : '2' ;
       my $caption = "$confirmed confirmed cases";
-      $caption .= sfprintf($confirmed/$pop) if $by_pop;
+      $caption .= units($confirmed/$pop) if $by_pop;
       my $title = mk_title($name,$caption,"rhs");
-      $to_print.=qq{$country_plot "$country.dat" using 1:$cases_by_pop$cc axis x1y2 with lines $title $lc lw 6\n};
+      $to_print.=qq{$country_plot "$country.dat" using 1:$cases_by_pop$cc }.axis().qq{ with lines $title $lc lw 6\n};
+      flip_sides();
       $country_plot="replot";
     }
     # ## Delta ## #
     # cases per day
     if(($plot_cases||!$plot_deaths) && $plot_delta){
       my $title = mk_title($name,"new cases per day","lhs");
-      $to_print.=qq{$country_plot "$country.dat" using 1:(\$4$by_pop)$cc axis x1y1 with lines $title $lc lw 4\n};
+      $to_print.=qq{$country_plot "$country.dat" using 1:(\$4$by_pop)$cc }.axis().qq{ with lines $title $lc lw 4\n};
+      flip_sides();
       $country_plot="replot";
     }
     ### plot deaths ###
@@ -565,7 +585,8 @@ foreach my $c (0..$#order_by_country){
       if(!$plot_delta_only){
         # my $deaths_col=$plot_by_pop ? "(\$3/$pop*1e6)" : '3' ;
         my $title=mk_title($name,"$deaths deaths$ratio","rhs");
-        $to_print.=qq{$country_plot "$country.dat" using 1:(\$3$by_pop)$cc axis x1y2 with lines $title $lc dt 3 lw 6\n};
+        $to_print.=qq{$country_plot "$country.dat" using 1:(\$3$by_pop)$cc }.axis().qq{ with lines $title $lc dt 3 lw 6\n};
+      flip_sides();
         $country_plot="replot";
       }
       if($plot_delta){
@@ -580,7 +601,8 @@ foreach my $c (0..$#order_by_country){
         }
         # my $deaths_col=$plot_by_pop ? "(\$5/$pop*1e6)" : '5' ;
         my $title=mk_title($name,"deaths per day",$lhrhs);
-        $to_print.=qq{$country_plot "$country.dat" using 1:(\$5$by_pop)$cc axis $axis with lines $title $lc $dt lw 2\n};
+        $to_print.=qq{$country_plot "$country.dat" using 1:(\$5$by_pop)$cc }.axis().qq{ with lines $title $lc $dt lw 2\n};
+      flip_sides();
         $country_plot="replot";
       }
     }
@@ -607,7 +629,11 @@ foreach my $c (0..$#order_by_country){
       print $COUNTRY qq{load "palette-$country.gp"\n};
     }
 
-    if($c<$max_lines && $country ne "grand_total")
+    if(
+       ($by_country || ($pop && $pop>$min_pop))
+       && $country ne "grand_total"
+       && $max_lines-- > 0
+    )
     {
       if($everyone_plot ne "plot"){
         $to_print =~ s/^ *plot/replot/;
