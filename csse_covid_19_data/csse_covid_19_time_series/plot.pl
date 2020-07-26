@@ -33,7 +33,7 @@ use Data::Dumper;
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
-my $max_lines=10;
+my $max_lines=20;
 
 my $plot_cases;
 my $plot_deaths;
@@ -112,6 +112,35 @@ set palette defined ( \\
 
 # init_palette();
 
+my $tics;
+
+sub init_grid()
+{
+  my @y12=('y');
+  my $retval=qq{
+    set grid xtics
+    set grid mxtics
+  };
+  if($tics eq 'lhs_rhs'){
+    push @y12, 'y2';
+    $retval.=qq{
+      set ytics nomirror
+    };
+  }else{
+    $retval.=qq{
+      set y2tics mirror
+    };
+  }
+  foreach my $y (@y12){
+    $retval.=qq{
+    set format $y "%6.0f"
+    set ${y}tics
+    set grid ${y}tics
+    set grid m${y}tics
+    };
+  }
+}
+
 sub init_gp($)
 {
   my $country=shift;
@@ -123,26 +152,9 @@ sub init_gp($)
     set xtics format "%d/%m"
     set key left
     set timefmt "%Y-%m-%d"
-    # set logscale y2 10
-    # set logscale y2 2
-    # unset logscale
     set xrange ["2020-02-20":"2020-07-15"]
     # set xrange ["2020-02-20":*]
     # set xrange [*:*]
-    #suitable for logscale, whole of population
-    #set y2range [.00001:100]
-    #suitable for logscale, actual counts
-    #set yrange [1:*]
-    #set y2range [1:*]
-    #suitable for linear
-    #set y2range [0:*]
-    set format y2 "%6.0f"
-    # set y2tics mirror
-    set y2tics nomirror
-    set grid xtics
-    set grid mxtics
-    set grid y2tics
-    set grid my2tics
     set grid lt 1, lt 0 dt 2
     set term wxt background rgb "gray"
     load "palette.gp"
@@ -155,7 +167,7 @@ sub init_gp($)
   }else{
     $retval.=qq{unset label\nset key inside\n};
   }
-  $retval.= $plot_delta ? "set ytics\n" : "unset ytics\n";
+  # $retval.= $plot_delta ? "set ytics\n" : "unset ytics\n";
   $retval=~s/^\s*//;
   return $retval;
 }
@@ -198,10 +210,12 @@ my %flags=(
   mexico=>[qw(green white red)],
   turkey=>[qw(red white red)],
   hungary=>[qw(red white green)],
-  new_york=>[qw(blue white orange)],
+  #new_york=>[qw(blue white orange)],
+  #florida=>[qw(red white)],
   russia=>[qw(red)],
   india=>[qw(orange white green)],
   peru=>[qw(red white red)],
+  ukraine=>[qw(yellow blue)],
 );
 
 my %labels=(
@@ -275,6 +289,11 @@ my $last_title_name;
 
 my $lhs_rhs;
 
+sub reset_lhs_rhs(){
+  $lhs_rhs='lhs';
+  $tics='lhs';
+}
+
 sub lhs_rhs(){
   return $lhs_rhs;
 }
@@ -285,6 +304,7 @@ sub axis(){
 
 sub flip_sides(){
   $lhs_rhs = $lhs_rhs eq 'lhs' ? 'rhs' : 'lhs';
+  $tics='lhs_rhs';
 }
 
 sub mk_title($$$)
@@ -333,6 +353,7 @@ sub read_csv($)
     if($by_country){
       next unless $columns[1] =~ /$by_country/i;
     }
+    # print "plotting $columns[1].$columns[0]\n";
     # next if $columns[0] =~ /diamond.princess/i;
     my $name = $columns[$name_column];
     my $region = lc($name);
@@ -346,13 +367,13 @@ sub read_csv($)
       $country_counts{$region}{$headings[$i]}{$series}+=$count;
       $country_counts{grand_total}{$headings[$i]}{$series}+=$count;
       if($plot_us && $region ne "new_york"){
-        $country_counts{"us_ex_ny"}{$headings[$i]}{$series}+=$count;
+        #$country_counts{"us_ex_ny"}{$headings[$i]}{$series}+=$count;
       }
     }
     $total{$region}{$series} += $columns[$#columns];
     $total{grand_total}{$series} += $columns[$#columns];
     if($plot_us && $region ne "new_york"){
-      $total{"us_ex_ny"}{$series} += $columns[$#columns];
+      #$total{"us_ex_ny"}{$series} += $columns[$#columns];
     }
   }
   $names{grand_total} = "Total";
@@ -471,12 +492,17 @@ foreach(@ARGV){
     if(m/pop(\d+)/){
       $min_pop=$1;
       $plot_by_pop.=" (min ".units($min_pop).")";
+    }else{
+      $plot_by_pop.=" (no minimum pop)";
+      
     }
   }elsif(m/pull/){
     system("git pull");
   }else{
     $by_country=$_;
-    if(m/^us/){
+    if(m/^aus$/){
+      $by_country="australia";
+    }elsif(m/^us/){
       $plot_us=1;
       $flags{"grand_total"} = $flags{"us"};
     }
@@ -551,7 +577,7 @@ foreach my $c (0..$#order_by_country){
   my ($cc,$lc)=line_color($country,$c);
   foreach my $plot ("plot", "replot"){
     $last_title_name="-";
-    $lhs_rhs='lhs';
+    reset_lhs_rhs();
     open my $COUNTRY, ">", "\L$plot-$country.gp";
     my $country_plot=$plot;
     print $COUNTRY init_gp($country);
@@ -621,6 +647,7 @@ foreach my $c (0..$#order_by_country){
           replot
         };
     }
+    print $COUNTRY init_grid();
     print $COUNTRY $to_print;
 
     last if($plot ne "plot");
@@ -643,5 +670,6 @@ foreach my $c (0..$#order_by_country){
     }
   }
 }
+print $EVERYONE init_grid();
 
 print STDERR "Done\n";
