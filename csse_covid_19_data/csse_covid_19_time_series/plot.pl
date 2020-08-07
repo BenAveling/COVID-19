@@ -33,7 +33,7 @@ use Data::Dumper;
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases as % of population of country";
 # my $chart_file="Confirmed"; my $chart_title="Confirmed cases";
 # my $chart_file="Deaths"; my $chart_title="Confirmed deaths";
-my $max_lines=20;
+my $max_lines=10;
 
 my $plot_cases;
 my $plot_deaths;
@@ -110,7 +110,7 @@ set palette defined ( \\
 };
 }
 
-# init_palette();
+init_palette();
 
 my $tics;
 
@@ -216,6 +216,9 @@ my %flags=(
   india=>[qw(orange white green)],
   peru=>[qw(red white red)],
   ukraine=>[qw(yellow blue)],
+  chile=>[qw(blue white white red red)],
+  colombia=>[qw(yellow yellow blue red)],
+  south_africa=>[qw(green black white gold red blue)],
 );
 
 my %labels=(
