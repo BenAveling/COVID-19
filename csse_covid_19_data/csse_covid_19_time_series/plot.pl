@@ -6,7 +6,16 @@
 # and creates .dat files suitable for gnuplot
 #
 my $usage = q{Usage:
-  perl plot.pl [-d|delta] [-m|mortality] [country]
+  perl plot.pl [-h] [pull] [delta[only]] [deaths[only]] [pop[min]] [aus|us]
+  -h = this help
+  pull = retrieve latest data
+  delta = plot delta
+  deltaonly = plot only delta
+  deaths = plot deaths
+  deathsonly = plot only deaths
+  pop = plot by population (ignore countries with less than min pop)
+  pop<min> = plot by population ignoring countries with less than <min> pp
+  aus or us = plot for states in Australia or USA respectively
 };
 # ######################################################################
 # History:
@@ -112,19 +121,25 @@ set palette defined ( \\
 
 init_palette();
 
-my $tics;
 
 sub init_grid()
 {
+  my $tics=tics();;
   my @y12=('y');
   my $retval=qq{
+    # #########
+    # init_grid
     set grid xtics
     set grid mxtics
+  };
+  $retval.=qq{
+    # tics = $tics
   };
   if($tics eq 'lhs_rhs'){
     push @y12, 'y2';
     $retval.=qq{
       set ytics nomirror
+      set y2tics 
     };
   }else{
     $retval.=qq{
@@ -139,22 +154,29 @@ sub init_grid()
     set grid m${y}tics
     };
   }
+  $retval.=qq{
+    # init_grid
+    # #########
+  };
+  $retval=~s/^ */  /mg;
+  return $retval
 }
 
 sub init_gp($)
 {
   my $country=shift;
   my $retval=qq{
-  # set title "New confirmed cases/deaths per day"
-  # set title "Confirmed cases"
+    # set title "New confirmed cases/deaths per day"
+    # set title "Confirmed cases"
     set xdata time
     # set xtics format "%a %d/%m"
     set xtics format "%d/%m"
     set key left
     set timefmt "%Y-%m-%d"
-    set xrange ["2020-02-20":"2020-07-15"]
-    # set xrange ["2020-02-20":*]
+    # set xrange ["2020-07-25":"2020-08-18"]
+    set xrange ["2020-02-20":"2020-09-30"]
     # set xrange [*:*]
+    set yrange [1:*]
     set grid lt 1, lt 0 dt 2
     set term wxt background rgb "gray"
     load "palette.gp"
@@ -165,7 +187,7 @@ sub init_gp($)
   if($country eq 'everyone'){
     $retval.="set key outside\n";
   }else{
-    $retval.=qq{unset label\nset key inside\n};
+    $retval.=qq{unset label\n  set key inside\n};
   }
   # $retval.= $plot_delta ? "set ytics\n" : "unset ytics\n";
   $retval=~s/^\s*//;
@@ -219,6 +241,7 @@ my %flags=(
   chile=>[qw(blue white white red red)],
   colombia=>[qw(yellow yellow blue red)],
   south_africa=>[qw(green black white gold red blue)],
+  vietnam=>[qw(red yellow red)],
 );
 
 my %labels=(
@@ -290,24 +313,32 @@ sub line_color($$)
 
 my $last_title_name;
 
-my $lhs_rhs;
+my $num_flips=0;
 
 sub reset_lhs_rhs(){
-  $lhs_rhs='lhs';
-  $tics='lhs';
+  $num_flips=0;
+  #$lhs_rhs='lhs';
+  #$tics='lhs';
 }
 
 sub lhs_rhs(){
-  return $lhs_rhs;
+  return ( ($num_flips%2) ? 'rhs' : 'lhs');
 }
 
 sub axis(){
-  return $lhs_rhs eq 'lhs' ? 'axis x1y1' : 'axis x1y2';
+  return ( ($num_flips%2) ? 'axis x1y2' : 'axis x1y1');
+ }
+
+sub tics(){
+  return ( ($num_flips<2) ? 'lhs' : 'lhs_rhs' );
  }
 
 sub flip_sides(){
-  $lhs_rhs = $lhs_rhs eq 'lhs' ? 'rhs' : 'lhs';
-  $tics='lhs_rhs';
+  ++$num_flips;
+}
+
+sub unflip_sides(){
+  --$num_flips;
 }
 
 sub mk_title($$$)
@@ -479,12 +510,13 @@ $plot_by_pop='';
 $min_pop=0;
 
 foreach(@ARGV){
-  if(m/-c|nocase/){
-    $plot_cases='';
-  }elsif(m/-d|delta/){
+  if(m/^-h/){
+    print $usage;
+    exit
+  }elsif(m/delta/){
     $plot_delta=" delta-cases";
     $plot_delta_only=" (only)" if m/only/;
-  }elsif(m/-m|mort|death/){
+  }elsif(m/deaths/){
     $plot_deaths=" deaths";
     if(m/only/){
       $plot_cases='';
@@ -492,8 +524,8 @@ foreach(@ARGV){
     }
   }elsif(m/pop/){
     $plot_by_pop=" by population";
-    if(m/pop(\d+)/){
-      $min_pop=$1;
+    if(m/\d+.*/){
+      $min_pop=eval $&;
       $plot_by_pop.=" (min ".units($min_pop).")";
     }else{
       $plot_by_pop.=" (no minimum pop)";
@@ -631,7 +663,7 @@ foreach my $c (0..$#order_by_country){
         # my $deaths_col=$plot_by_pop ? "(\$5/$pop*1e6)" : '5' ;
         my $title=mk_title($name,"deaths per day",$lhrhs);
         $to_print.=qq{$country_plot "$country.dat" using 1:(\$5$by_pop)$cc }.axis().qq{ with lines $title $lc $dt lw 2\n};
-      flip_sides();
+        flip_sides();
         $country_plot="replot";
       }
     }
@@ -650,6 +682,7 @@ foreach my $c (0..$#order_by_country){
           replot
         };
     }
+    unflip_sides();
     print $COUNTRY init_grid();
     print $COUNTRY $to_print;
 
