@@ -176,7 +176,7 @@ sub init_gp($)
     # set xrange ["2020-07-25":"2020-08-18"]
     set xrange ["2020-02-20":"2020-09-30"]
     # set xrange [*:*]
-    set yrange [1:*]
+    set yrange [0:*]
     set grid lt 1, lt 0 dt 2
     set term wxt background rgb "gray"
     load "palette.gp"
@@ -596,6 +596,8 @@ open my $EVERYONE, ">", "plot-everyone.gp";
 # my $plot="plot";
 print $EVERYONE init_gp('everyone');
 
+open my $SCATTER, ">", "scatter.dat";
+
 my $everyone_plot="plot";
 foreach my $c (0..$#order_by_country){
   my $country = $order_by_country[$c];
@@ -703,6 +705,10 @@ foreach my $c (0..$#order_by_country){
       }
       print $EVERYONE $to_print,"\n"; 
       $everyone_plot="replot";
+    }
+    if($pop && $country ne "grand_total"){
+      $name=~s/ /-/g;
+      print $SCATTER "$name $confirmed $deaths $pop\n"
     }
   }
 }
