@@ -20,6 +20,7 @@ my $usage = q{Usage:
 # ######################################################################
 # History:
 # 2020-03-18 Created. 
+# FIXME - by region should reuse more of the by country code
 # ######################################################################
 
 # ####
@@ -57,6 +58,8 @@ my %country_counts;
 my %total;
 my %names;
 
+my $xrange_upper = "2020-11-30";
+
 # ####
 # SUBS
 # ####
@@ -87,15 +90,19 @@ sub fix_date($)
   return sprintf "20%02d-%02d-%02d",$3,$1,$2;
 }
 
+# For best results, start and finish with red and white - the 
+# two most common colours.
+
 my %palette=(
   red=>1,
-  gold=>2,
-  blue=>3,
-  yellow=>4,
-  green=>5,
-  black=>6,
-  orange=>7,
-  white=>8,
+  'dark-red'=>2,
+  gold=>3,
+  blue=>4,
+  yellow=>5,
+  green=>6,
+  black=>7,
+  orange=>8,
+  white=>9,
 );
 
 sub init_palette()
@@ -103,16 +110,17 @@ sub init_palette()
   open my $PALETTE, '>', 'palette.gp' or die "Can't write palette.gp: $!";
 print $PALETTE qq{
 # set palette maxcolors 2
-set palette maxcolors 8
+set palette maxcolors 9
 set palette defined ( \\
    1 'red', \\
-   2 'gold', \\
-   3 'blue', \\
-   4 'yellow', \\
-   5 'green', \\
-   6 'black', \\
-   7 'orange', \\
-   8 'white', \\
+   2 'dark-red', \\
+   3 'gold', \\
+   4 'blue', \\
+   5 'yellow', \\
+   6 'green', \\
+   7 'black', \\
+   8 'orange', \\
+   9 'white', \\
 
   unset label
   # replot
@@ -173,8 +181,7 @@ sub init_gp($)
     set xtics format "%d/%m"
     set key left
     set timefmt "%Y-%m-%d"
-    # set xrange ["2020-07-25":"2020-08-18"]
-    set xrange ["2020-02-20":"2020-09-30"]
+    set xrange ["2020-02-20":"$xrange_upper"]
     # set xrange [*:*]
     set yrange [0:*]
     set grid lt 1, lt 0 dt 2
@@ -232,7 +239,7 @@ my %flags=(
   mexico=>[qw(green white red)],
   turkey=>[qw(red white red)],
   hungary=>[qw(red white green)],
-  #new_york=>[qw(blue white orange)],
+  new_york=>[qw(blue white orange)],
   #florida=>[qw(red white)],
   russia=>[qw(red)],
   india=>[qw(orange white green)],
@@ -242,6 +249,13 @@ my %flags=(
   colombia=>[qw(yellow yellow blue red)],
   south_africa=>[qw(green black white gold red blue)],
   vietnam=>[qw(red yellow red)],
+  poland=>[qw(red white)],
+  qatar=>[qw(white red red red)],
+  bahrain=>[qw(white dark-red dark-red)],
+  armenia=>[qw(red blue orange)],
+  israel=>[qw(blue white)],
+  panama=>[qw(red white blue)],
+  kuwait=>[qw(green white red black)],
 );
 
 my %labels=(
@@ -269,7 +283,14 @@ my %pop;
 
 sub read_pop
 {
-  open(my $POP,"country_population.txt") or die;
+  my $where=shift;
+  my $pop_file="country_population.txt";
+  if($where){
+    my $candidate="population.$where.txt";
+    $pop_file=$candidate if -e $candidate;
+  }
+  print "ploting by pop: $pop_file ($plot_us)\n";
+  open(my $POP,$pop_file) or die;
   while(<$POP>){
     next if m/^\s*#|^\s*$/;
     my @fields=split /\t/, $_;
@@ -292,8 +313,6 @@ sub read_pop
   # print Dumper \%pop;
   # exit;
 }
-
-read_pop();
 
 sub line_color($$)
 {
@@ -531,6 +550,10 @@ foreach(@ARGV){
       $plot_by_pop.=" (no minimum pop)";
       
     }
+  }elsif(m/lines|max/){
+    if(m/\d+/){
+      $max_lines=$&;
+    }
   }elsif(m/pull/){
     system("git pull");
   }else{
@@ -544,9 +567,9 @@ foreach(@ARGV){
   }
 }
 if($plot_by_pop){
-  # $plot_cases=$plot_deaths=$plot_delta="";
+  read_pop($plot_us ? 'us' : '');
 }
-print "plotting $by_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop,"\n";
+print "plotting $by_country:",$plot_cases,$plot_deaths,$plot_delta,$plot_by_pop," max lines $max_lines\n";
 
 foreach my $series (qw(Confirmed Deaths)){
   read_csv($series );
@@ -643,11 +666,12 @@ foreach my $c (0..$#order_by_country){
       $country_plot="replot";
     }
     ### plot deaths ###
-    my $ratio=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
+    my $caption=$deaths?sprintf(" - %.2f%%",$deaths/$confirmed*100):'';
+    # my $caption=$deaths?sprintf(" - %.2f%",$deaths/$pop):''; # FIXME
     if($plot_deaths){
       if(!$plot_delta_only){
         # my $deaths_col=$plot_by_pop ? "(\$3/$pop*1e6)" : '3' ;
-        my $title=mk_title($name,"$deaths deaths$ratio","rhs");
+        my $title=mk_title($name,"$deaths deaths$caption","rhs");
         $to_print.=qq{$country_plot "$country.dat" using 1:(\$3$by_pop)$cc }.axis().qq{ with lines $title $lc dt 3 lw 6\n};
       flip_sides();
         $country_plot="replot";
@@ -698,14 +722,14 @@ foreach my $c (0..$#order_by_country){
        ($by_country || ($pop && $pop>$min_pop))
        && $country ne "grand_total"
        && $max_lines-- > 0
-    )
-    {
+    ) {
       if($everyone_plot ne "plot"){
         $to_print =~ s/^ *plot/replot/;
       }
       print $EVERYONE $to_print,"\n"; 
       $everyone_plot="replot";
     }
+    # Pop implicitly implies scatter
     if($pop && $country ne "grand_total"){
       $name=~s/ /-/g;
       print $SCATTER "$name $confirmed $deaths $pop\n"

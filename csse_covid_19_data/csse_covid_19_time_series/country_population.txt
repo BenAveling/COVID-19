@@ -235,3 +235,6 @@ Tokelau	Oceania	Polynesia	1,319	1,340	+1.59%
 Vatican City	Europe	Southern Europe	801	799	-0.25%
 
 #source https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+
+California	-	-	-	39500000	-
+Iowa	-	-	-	3155000	-

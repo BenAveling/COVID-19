@@ -1,0 +1,419 @@
+
+Ada
+Adams
+Aiken
+Alachua
+Alamance
+Alameda
+Albany
+Alexandria
+Allegheny
+Allen
+Anchorage
+Anderson
+Anne Arundel
+Anoka
+Apache
+Arapahoe
+Arlington
+Ascension
+Atlantic
+Baldwin
+Baltimore
+Baltimore City
+Bay
+Bayamon
+Bear River
+Beaufort
+Bell
+Benton
+Benton
+Bergen
+Berkeley
+Berks
+Bernalillo
+Bexar
+Bibb
+Black Hawk
+Bonneville
+Boone
+Bossier
+Boulder
+Brazoria
+Brazos
+Brevard
+Bristol
+Bronx
+Broward
+Brown
+Bucks
+Buncombe
+Burleigh
+Burlington
+Butler
+Cabarrus
+Caddo
+Calcasieu
+Calhoun
+Camden
+Cameron
+Canyon
+Cass
+Catawba
+Centre
+Champaign
+Charleston
+Chatham
+Cherokee
+Chesapeake
+Chester
+Chesterfield
+Clark
+Clark
+Clarke
+Clay
+Clayton
+Cleveland
+Cobb
+Coconino
+Collier
+Collin
+Columbia
+Columbia
+Contra Costa
+Cook
+Craighead
+Cumberland
+Cumberland
+Cuyahoga
+Dakota
+Dallas
+Dane
+Dauphin
+Davidson
+Davis
+DeKalb
+Delaware
+Denton
+Denver
+DeSoto
+District of Columbia
+Dona Ana
+Dorchester
+Douglas
+Douglas
+Dubuque
+DuPage
+Durham
+Dutchess
+Duval
+East Baton Rouge
+Ector
+El Paso
+El Paso
+Elkhart
+Ellis
+Erie
+Escambia
+Essex
+Essex
+Etowah
+Fairfax
+Fairfield
+Fayette
+Florence
+Floyd
+Forsyth
+Forsyth
+Fort Bend
+Franklin
+Franklin
+Frederick
+Fresno
+Fulton
+Galveston
+Gaston
+Genesee
+Gloucester
+Glynn
+Greene
+Greenville
+Guadalupe
+Guilford
+Gwinnett
+Hall
+Hamilton
+Hamilton
+Hamilton
+Hampden
+Harris
+Harrison
+Hartford
+Hays
+Hennepin
+Henrico
+Henry
+Hidalgo
+Hillsborough
+Hillsborough
+Hinds
+Honolulu
+Horry
+Houston
+Houston
+Howard
+Hudson
+Imperial
+Indian River
+Ingham
+Iredell
+Jackson
+Jackson
+Jasper
+Jefferson
+Jefferson
+Jefferson
+Jefferson
+Jefferson
+Jefferson
+Jefferson
+Johnson
+Johnson
+Johnston
+Kalamazoo
+Kane
+Kansas City
+Kenosha
+Kent
+Kern
+King
+Kings
+Kings
+Knox
+La Crosse
+Lafayette
+Lafourche
+Lake
+Lake
+Lake
+Lancaster
+Lancaster
+Lee
+Lee
+Lehigh
+Leon
+Lexington
+Linn
+Livingston
+Los Angeles
+Loudoun
+Lowndes
+Lubbock
+Lucas
+Luzerne
+Macomb
+Madera
+Madison
+Madison
+Madison
+Madison
+Mahoning
+Manatee
+Maricopa
+Marin
+Marion
+Marion
+Marion
+Marshall
+Martin
+Maverick
+McHenry
+McKinley
+McLean
+McLennan
+Mecklenburg
+Merced
+Mercer
+Miami-Dade
+Michigan Department of Corrections (MDOC)
+Middlesex
+Middlesex
+Midland
+Milwaukee
+Minnehaha
+Mobile
+Mohave
+Monmouth
+Monroe
+Monterey
+Montgomery
+Montgomery
+Montgomery
+Montgomery
+Montgomery
+Montgomery
+Morgan
+Morris
+Multnomah
+Muscogee
+Nassau
+Navajo
+New Castle
+New Hanover
+New Haven
+New York
+Norfolk
+Norfolk
+Northampton
+Nueces
+Oakland
+Ocean
+Okaloosa
+Oklahoma
+Onondaga
+Orange
+Orange
+Orange
+Orleans
+Osceola
+Ottawa
+Ouachita
+Out of GA
+Out of TN
+Outagamie
+Palm Beach
+Pasco
+Passaic
+Peoria
+Philadelphia
+Pickens
+Pierce
+Pima
+Pinal
+Pinellas
+Pitt
+Placer
+Plymouth
+Polk
+Polk
+Potter
+Prince George's
+Prince William
+Providence
+Pulaski
+Putnam
+Queens
+Racine
+Ramsey
+Randall
+Rankin
+Rapides
+Richland
+Richmond
+Richmond
+Richmond City
+Riverside
+Robeson
+Rock
+Rock Island
+Rockland
+Rowan
+Rutherford
+Sacramento
+Salt Lake
+San Bernardino
+San Diego
+San Francisco
+San Joaquin
+San Juan
+San Juan
+San Luis Obispo
+San Mateo
+Santa Barbara
+Santa Clara
+Santa Rosa
+Sarasota
+Sarpy
+Scott
+Sebastian
+Sedgwick
+Seminole
+Shelby
+Shelby
+Smith
+Snohomish
+Solano
+Somerset
+Sonoma
+Southwest Utah
+Spartanburg
+Spokane
+St. Charles
+St. Clair
+St. Johns
+St. Joseph
+St. Landry
+St. Louis
+St. Louis City
+St. Lucie
+St. Tammany
+Stanislaus
+Stark
+Starr
+Stearns
+Story
+Suffolk
+Suffolk
+Summit
+Sumner
+Sumter
+Sussex
+Tangipahoa
+Tarrant
+Terrebonne
+Tom Green
+Travis
+Tulare
+Tulsa
+Tuscaloosa
+Unassigned
+Union
+Union
+Utah
+Vanderburgh
+Ventura
+Victoria
+Virginia Beach
+Volusia
+Wake
+Walker
+Warren
+Warren
+Washington
+Washington
+Washington
+Washington
+Washoe
+Washtenaw
+Waukesha
+Wayne
+Wayne
+Webb
+Weber-Morgan
+Weld
+Westchester
+Whitfield
+Will
+Williamson
+Williamson
+Wilson
+Winnebago
+Winnebago
+Woodbury
+Worcester
+Wyandotte
+Yakima
+Yellowstone
+York
+York
+Yuma
